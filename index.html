@@ -571,7 +571,7 @@ function firePlayerProj(kind,S,o,face){
   bigwave:{w:60,h:120,vx:f*15,life:60,dmg:A*2,pierce:true,col:S.col}}[kind]||extraProj(kind,S,f,A);
  Object.assign(T,o||{});
  const p=Object.assign({kind,friend:true,x:(f>0?P.x+P.w:P.x-T.w),y:cy-T.h/2,vy:0,face:f},T);
- if(kind==='shock')p.y=P.y+P.h-T.h;
+ if(kind==='shock')p.y=P.y+P.h-T.h;if(p.trap)p.y=P.y+P.h-24;
  shoot(p);if(kind!=='shock')sfx('shoot');
 }
 function plungeLand(S){
@@ -699,7 +699,7 @@ function releaseUlt(S){
  sfx('ult');shake(12);G.flash={col:U.col,t:18};addFx({kind:'banner',txt:U.name,col:U.col,life:80});P.inv=Math.max(P.inv,30);
  switch(U.type){
   case'dashes':case'execute':P.ul={type:U.type,n:U.n,t:0,lock:true,noGrav:true};break;
-  case'screen':P.ul={type:'screen',t:0,lock:true,noGrav:true};G.slow=36;addFx({kind:'screen',col:U.col,life:40});break;
+  case'screen':P.ul={type:'screen',t:0,lock:true,noGrav:true};G.slow=36;/*v9:scr*/break;
   case'storm':P.ul={type:'storm',t:0,dur:U.dur};addFx({kind:'storm',col:U.col,life:U.dur,follow:true});break;
   case'fortress':P.fortT=U.dur;addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:20,max:120,col:U.col,life:24});break;
   case'quake':P.ul={type:'quake',t:0,lock:true};P.vy=-15;break;
@@ -785,7 +785,7 @@ function updatePlayer(){
   if(d.slash&&d.type!=='blink')strike({x:P.x-12,y:P.y,w:P.w+24,h:P.h},0.8,{hitset:P.dodgeHit,kb:2,col:S.col});
  }else if(!busy){
   const mv=(held('right')?1:0)-(held('left')?1:0);
-  const sp=P.st.spd*(P.guard?0.25:1)*(P.charging?0.4:1)*(P.atkT>0&&P.ground?0.3:1);
+  const sp=P.st.spd*(P.guard?0.25:1)*(P.charging?(save.cls==='bowman'?0.75:0.4):1)*(P.atkT>0&&P.ground&&!(P.atkCur&&P.atkCur.ranged)?0.3:1);
   if(mv){P.vx+=(mv*sp-P.vx)*0.35;if(P.atkT<=0&&!P.charging)P.face=mv;}else P.vx*=P.ground?0.7:0.93;
   if(hit('jump')&&!P.plunge){
    if(held('down')&&P.ground&&P.onPlat){P.dropT=16;P.ground=false;P.y+=3;}
@@ -1400,14 +1400,14 @@ function drawHUD(){
  slot(144,92,'🧪',keyName(bind('potion')),0,String(P.potions),P.potions>0);
  slot(188,92,S.icon,keyName(bind('ult')),1-P.ultG/100,'',full);
  for(let i=0;i<S.combo.length;i++){ctx.fillStyle=i<=P.atkI&&(P.atkT>0||P.comboWin>0)?S.col:'#2e2b48';ctx.fillRect(236+i*12,104,9,9);}
- txt(`${gimmickHud(S)}${S.petal?` · 🪷 ${P.petals}/5`:''}`,236,128,'#9a96b5',10);
+ txt(`${gimmickHud(S)}${S.petal?` · 🪷 ${P.petals}/${S.petalMax||5}`:''}`,236,128,'#9a96b5',10);
  if(run.relics.length){ctx.font='16px sans-serif';ctx.textAlign='left';run.relics.forEach((r,i)=>ctx.fillText(r.icon,12+(i%14)*21,154+Math.floor(i/14)*20));}
  let y2=12;if(run.rooms)y2=drawMinimap()+16;else y2=24;
  txt(`💰 ${save.gold.toLocaleString()} G   🪨 ${save.ore}   🔮 ${save.soul||0}${P.st.over>0?'   ⚖️ 과적':''}`,W-14,y2,'#ffd77a',12,'right');
  let label;
  if(G.mode==='training')label='🎯 훈련장';
  else if(G.mode==='pvp')label=`🌐 온라인 결투${NET.conn&&NET.conn.open?'':' (연결 끊김)'}`;
- else if(G.mode==='dungeon')label=dunLabel();else if(G.mode==='endless')label=`👹 무한 서바이벌 · 웨이브 ${run.wave}${!run.waveActive&&G.waveT>0?` (다음 웨이브 ${Math.ceil(G.waveT/60)}초)`:''}`;
+ else if(G.mode==='raid'||G.mode==='chal')label=v9Label();else if(G.mode==='dungeon')label=dunLabel();else if(G.mode==='endless')label=`👹 무한 서바이벌 · 웨이브 ${run.wave}${!run.waveActive&&G.waveT>0?` (다음 웨이브 ${Math.ceil(G.waveT/60)}초)`:''}`;
  else label=`${G.mode==='campaign'?`📜 제${run.chapter+1}장`:`⚔️ 원정 ${run.floor}/5층`} · ${THEMES[run.theme].name} · ${ROOM_NAME[run.rooms[run.cur].type]}`;
  txt(label,W/2,24,'#e8e6f0',13,'center');
  const boss=enemies.find(e=>e.boss&&!e.dead);
@@ -1453,19 +1453,19 @@ const setUI=h=>{$('ui').innerHTML=h;};
 const setModal=h=>{$('modal').innerHTML=h;};
 const place=h=>{if(G.scene==='play')setModal(h);else setUI(h);};
 const fmtT=s=>{s=Math.floor(s);return`${Math.floor(s/3600)}시간 ${Math.floor(s/60)%60}분 ${s%60}초`;};
-const modeName=()=>({expedition:'⚔️ 원정',campaign:'📜 스토리 캠페인',endless:'👹 무한 서바이벌',dungeon:'🕳️ 수련 던전',training:'🎯 훈련장',pvp:'🌐 온라인 결투'})[G.mode]||'';
+const modeName=()=>({expedition:'⚔️ 원정',campaign:'📜 스토리 캠페인',endless:'👹 무한 서바이벌',dungeon:'🕳️ 수련 던전',raid:'🗿 레이드',chal:'⛓️ 제약 챌린지',training:'🎯 훈련장',pvp:'🌐 온라인 결투'})[G.mode]||'';
 function keepScroll(fn){const el=document.querySelector('#ui .scroll'),s=el?el.scrollTop:0;fn();const n=document.querySelector('#ui .scroll');if(n)n.scrollTop=s;}
 function applyCrt(){$('crt').style.display=save.settings.crt?'block':'none';}
 
 /* ===================== 33. 타이틀 · 메인 메뉴 ===================== */
 function showTitle(){G.scene='title';G.back=null;G.modal=null;setModal('');$('touch').style.display='none';$('train').style.display='none';
- setUI(`<div class="scr center" style="background:transparent;justify-content:flex-end;padding-bottom:80px;cursor:pointer" onclick="showMenu()"><div style="font-size:18px;color:#ffd77a;animation:blink 1.2s infinite">— PRESS ANY KEY —</div><div class="muted" style="margin-top:8px">클릭하거나 아무 키나 누르세요</div></div><div class="ver">v8.1</div>`);}
+ setUI(`<div class="scr center" style="background:transparent;justify-content:flex-end;padding-bottom:80px;cursor:pointer" onclick="showMenu()"><div style="font-size:18px;color:#ffd77a;animation:blink 1.2s infinite">— PRESS ANY KEY —</div><div class="muted" style="margin-top:8px">클릭하거나 아무 키나 누르세요</div></div><div class="ver">v9.0</div>`);}
 function showMenu(){initAudio();G.scene='menu';G.back=null;
  setUI(`<div class="menu-main"><div class="logo-s">劍聖 검성<span>SWORD MASTER</span></div>
  <button class="btn big gold" onclick="newGame()">⚔️ 새로운 여정</button>
  <button class="btn big" onclick="showHub()" ${save.hasSave?'':'disabled'}>📜 이어하기 ${save.hasSave?`<span class="muted">Lv.${save.level} · 캠페인 ${save.chapter}/5장</span>`:''}</button>
  <button class="btn big" onclick="showSettings(showMenu)">⚙️ 환경 설정</button>
- <button class="btn big" onclick="showControls(showMenu)">🎮 조작법</button></div><div class="ver">v8.1 · 자동 저장 지원</div>`);}
+ <button class="btn big" onclick="showControls(showMenu)">🎮 조작법</button></div><div class="ver">v9.0 · 자동 저장 지원</div>`);}
 function newGame(){if(save.hasSave&&!confirm('기존 저장 데이터를 덮어쓰고 새로 시작할까요?'))return;const st=save.settings;save=defaultSave();save.settings=st;writeSave(true);setUI('');G.scene='hub';showDialog(PROLOGUE,showHub,'pro');}
 
 /* ===================== 34. 대화창 ===================== */
@@ -1671,7 +1671,7 @@ function showResult(win,msg){
  if(!run)return;G.paused=true;G.modal='result';$('touch').style.display='none';$('train').style.display='none';
  if(run.mode==='endless')save.rec.bestWave=Math.max(save.rec.bestWave,run.wave);
  writeSave(true);
- const r=run,prog=r.mode==='expedition'?`${r.floor}층 / 5층`:r.mode==='campaign'?`제${r.chapter+1}장 · ${STORY[r.chapter].title}`:r.mode==='endless'?`${r.wave} 웨이브`:r.mode==='pvp'?`통산 ${save.rec.pvpWins||0}승 ${save.rec.pvpLoss||0}패`:'-';
+ const r=run,prog=r.mode==='expedition'?`${r.floor}층 / 5층`:r.mode==='campaign'?`제${r.chapter+1}장 · ${STORY[r.chapter].title}`:r.mode==='endless'?`${r.wave} 웨이브`:r.mode==='dungeon'?`${DUNGEONS[r.dun.i].n} · ${r.wave}/${r.dun.max} 웨이브`:r.mode==='raid'?'시련의 파수꾼':r.mode==='chal'?`챌린지 ${r.chal?r.chal.pt:0}점 · ${r.wave}웨이브`:r.mode==='pvp'?`통산 ${save.rec.pvpWins||0}승 ${save.rec.pvpLoss||0}패`:'-';
  setModal(`<div class="scr center"><h2 style="font-size:30px;color:${win?'#ffd77a':'#ff5a6a'}">${win?'승 리':'패 배'}</h2><div class="muted" style="margin:6px 0 14px">${msg||(win?'':'검이 부러졌다… 하지만 검의 길은 끝나지 않았다.')}</div>
  <div class="card" style="width:460px"><table class="rec"><tr><td>모드</td><td>${modeName()}</td></tr><tr><td>진행</td><td>${prog}</td></tr><tr><td>처치</td><td>${r.kills}</td></tr><tr><td>준 피해</td><td>${Math.round(r.dmg).toLocaleString()}</td></tr><tr><td>획득 골드 · 경험치</td><td>${r.gold} G · ${r.xp} XP</td></tr><tr><td>레벨</td><td>${r.startLevel} → ${save.level}</td></tr><tr><td>탐험 시간</td><td>${fmtT(r.t/60)}</td></tr><tr><td>유물</td><td>${r.relics.map(x=>x.icon).join(' ')||'-'}</td></tr></table></div>
  <div class="muted sm" style="margin-top:8px">골드 · 경험치 · 적철광은 영구 보존되고, 유물은 이번 탐험에서만 유지됩니다.</div>
@@ -1955,7 +1955,7 @@ function updateCut(){
  if(c.t>=CUT_END){
   G.cut=null;G.zoom=1;releaseUlt(c.S);
   for(let i=0;i<46;i++)parts.push({x:G.camX+rand(0,W),y:rand(40,FLOOR),vx:rand(-6,6),vy:rand(-6,4),life:randi(20,40),max:40,col:pick([c.U.col,'#ffffff']),sz:randi(2,4),g:0.05,add:true});
-  addFx({kind:'screen',col:c.U.col,life:30});G.distort=16;G.flash={col:'#ffffff',t:8};
+  /*v9:ult*/G.distort=8;G.flash={col:'#ffffff',t:8};
  }
 }
 function drawCutDark(){const t=G.cut.t,a=t<12?t/12*0.8:t<62?0.8:t<92?0.5:0.5*(1-(t-92)/8);ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,W,H);}
@@ -2527,7 +2527,7 @@ function drawPlayer(){
  rigBlit(R,cx,fy,P.face,{rot:P.dead?rot*P.face:rot,alpha});
  if(!P.dead&&!rot){if(!p.noWeapon)rigGlow(R,cx,fy,P.face,bladeFor(C).glow||R.glow,P.charging?0:3);P.rigTip=p.noWeapon?[cx+P.face*22,cyOf(P)]:rigPt(R,R.wt,cx,fy,P.face);
   if(p.head.gl&&R.eyes[0]){const e=rigPt(R,R.eyes[0],cx,fy,P.face);ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle='rgba(255,240,180,.8)';ctx.fillRect(e[0]-P.face*1,e[1],P.face*14,2);ctx.restore();}}
- if(S.petal)for(let i=0;i<5;i++){ctx.fillStyle=i<P.petals?'#ff7fa8':'rgba(255,255,255,.15)';ctx.fillRect(cx-14+i*6,P.y-34,4,4);}
+ if(S.petal)for(let i=0;i<(S.petalMax||5);i++){ctx.fillStyle=i<P.petals?'#ff7fa8':'rgba(255,255,255,.15)';ctx.fillRect(cx-14+i*6,P.y-34,4,4);}
  if(P.lockT>0)txt('⛔',cx,P.y-38,'#fff',12,'center',false);
  if(P.keepFx>0)txt('流',cx-P.face*20,P.y-6,S.col,13,'center');
  if(P.pvpStun>0)for(let i=0;i<3;i++){const a=G.t*0.15+i*2.1;txt('★',cx+Math.cos(a)*14,P.y-20+Math.sin(a)*4,'#ffe07a',11,'center');}
@@ -3068,7 +3068,7 @@ function applySpecial(d,sp){
 function curStyle(){
  const cls=save.cls,sk=save.style[cls]||'basic',base=(STYLES[cls]&&STYLES[cls][sk])||STYLES[cls].basic;
  const g=save.custom&&save.custom.glow,gc=g&&GLOWS[g]?GLOWS[g].col:'';
- const wi=equippedWeapon(),sp=(wi&&wi.sp)||'',og=sk!=='basic'&&treeOf(cls,sk).ougi?1:0;
+ const v9pvp=G.mode==='pvp',wi=v9pvp?null:equippedWeapon(),sp=(wi&&wi.sp)||'',og=!v9pvp&&sk!=='basic'&&treeOf(cls,sk).ougi?1:0;
  const key=cls+'|'+sk+'|'+gc+'|'+sp+'|'+og;
  let d=_sty5[key];if(d)return d;
  d=Object.create(base);if(gc)d.col=gc;
@@ -3524,7 +3524,7 @@ function ensureBaseWeapons(){
  if(add)writeSave(true);
 }
 /* 무기 배율 · 특수 옵션은 이제 '장착 중인 무기 아이템'에서 읽음 */
-function weaponMul(c){const it=equippedWeaponOf(c||save.cls);return it?GRADES[clamp(it.g|0,0,4)].mul*(1+(it.p||0)*0.08):1;}
+function weaponMul(c){const it=equippedWeaponOf(c||save.cls);return it?GRADES[clamp(it.g|0,0,5)].mul*(1+(it.p||0)*0.08):1;}
 function wOpt(k){const it=equippedWeaponOf(save.cls),o=it&&it.opt;return o&&o.k===k?o.v:0;}
 
 /* ---- 기존 함수 확장(래핑) ---- */
@@ -3534,7 +3534,7 @@ const _v7gen=genItem;genItem=function(slot,rar,o){const it=_v7gen(slot,rar,o);
  return it;};
 const _v7mk=mkNamed;mkNamed=function(id){const it=_v7mk(id);if(it.slot==='weapon'){it.g=Math.min(4,it.rar);it.p=0;it.opt=null;}return it;};
 const _v7lines=itemLines;itemLines=function(it){const s=_v7lines(it);if(it.slot!=='weapon'||it.g==null)return s;
- const g=GRADES[clamp(it.g,0,4)],o=it.opt?OPTS.find(x=>x.k===it.opt.k):null;
+ const g=GRADES[clamp(it.g,0,5)],o=it.opt?OPTS.find(x=>x.k===it.opt.k):null;
  return`<span style="color:${g.col}">[${g.n}] +${it.p||0}</span> · 무기 배율 x${(g.mul*(1+(it.p||0)*0.08)).toFixed(2)}${o?` · ${o.name} +${(it.opt.v*100).toFixed(1)}%`:''}${it.base?' · 기본 무기':''}<br>`+s;};
 const _v7sell=sellItem;sellItem=function(uid){const it=itemById(uid);if(it&&it.base){toast('기본 무기는 판매할 수 없습니다 — 대장간에서 계속 강화해 쓸 수 있어요');return;}_v7sell(uid);};
 const _v7job=doJobChange;doJobChange=function(k){
@@ -3550,7 +3550,7 @@ const _v7run=startRun;startRun=function(m,o){ensureBaseWeapons();_v7run(m,o);};
 function showForge(){
  ensureBaseWeapons();G.back=showHub;
  const c=save.cls,C=CLASSES[c],w=equippedWeaponOf(c);
- const list=weaponsOf(c).sort((a,b)=>(b.base?1:0)-(a.base?1:0)||b.g-a.g||(b.p||0)-(a.p||0)).map(it=>{const on=w&&w.uid===it.uid,g=GRADES[clamp(it.g,0,4)];
+ const list=weaponsOf(c).sort((a,b)=>(b.base?1:0)-(a.base?1:0)||b.g-a.g||(b.p||0)-(a.p||0)).map(it=>{const on=w&&w.uid===it.uid,g=GRADES[clamp(it.g,0,5)];
   return`<div class="card ${on?'sel':''}" style="padding:6px"><div style="color:${g.col};font-weight:bold;font-size:13px">${it.icon} ${it.name} +${it.p||0}${it.base?' <span class="muted sm">기본</span>':''}</div><div class="kv sm">${itemLines(it)}</div><button class="btn sm" style="margin-top:4px" ${on?'disabled':''} onclick="forgeEquip('${it.uid}')">${on?'✔ 장착 중 · 강화 대상':'장착하고 강화하기'}</button></div>`;}).join('')||'<div class="muted">이 직업의 무기가 없습니다.</div>';
  const extra=`<button class="btn" onclick="forgePotion()" ${save.potionMax<6&&save.gold>=potCost()?'':'disabled'}>🧪 물약 주머니 확장 (${save.potionMax}→${Math.min(6,save.potionMax+1)}) — ${potCost()} G</button>
  <button class="btn" onclick="forgeOre()" ${save.gold>=300?'':'disabled'}>⛏️ 적철광 구매 — 300 G</button>`;
@@ -3583,7 +3583,7 @@ function showHub(){
  const qn=QUESTS.filter(questReady).length,tp=save.cls!=='novice'&&save.style[save.cls]!=='basic'?Math.max(0,treeAvail(save.cls,save.style[save.cls])):0;
  const B=(fn,label,extra,cls)=>`<button class="btn ${cls||''}" onclick="${fn}">${label}${extra||''}</button>`,bd=n=>n?`<span class="badge">${n}</span>`:'';
  const prog=!save.jobDone?`<div style="color:#ffd77a">${save.level>=5?'🎖️ 전직할 수 있습니다!':`🎖️ 전직까지 Lv.${save.level} / 5`}</div>`:canStyle()?'<div style="color:#ffd77a">🏯 유파를 고를 수 있습니다!</div>':save.level<15?`<div class="muted">🏯 유파 개방까지 Lv.${save.level} / 15</div>`:'';
- const wg=wi?GRADES[clamp(wi.g,0,4)]:null;
+ const wg=wi?GRADES[clamp(wi.g,0,5)]:null;
  setUI(`<div class="hub-left" style="width:420px;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:5px;bottom:auto"><div class="hub-title" style="grid-column:1/-1">⛩️ 검의 사당</div>
  ${canJob()?'<button class="btn gold" style="grid-column:1/-1" onclick="showJobChange()">🎖️ 전직 가능! 직업 선택</button>':''}
  ${B("startRun('expedition')",'⚔️ 원정 출발','','gold')}${B('showCampaign()','📜 스토리',` <span class="muted">${save.chapter}/5</span>`)}
@@ -3636,7 +3636,7 @@ const _v8as=applySpecial;applySpecial=function(d,sp){const[k,req]=String(sp).spl
 /* ---- 쉴드 게이지 ---- */
 function shieldAbsorb(d){if(!P||(G.mode==='training'&&G.trainInv))return d;P.shT=150;const a=Math.min(P.sh||0,d);
  if(a>0){P.sh-=a;addNum(cxOf(P)+12,P.y-14,Math.round(a),'#7fd8ff');burst(cxOf(P),cyOf(P),'#7fd8ff',6,3,{g:0});}return Math.max(0,Math.round(d-a));}
-const _v8hud=drawHUD;drawHUD=function(){_v8hud();if(!P)return;bar(18,30,284,3,P.shMax?(P.sh||0)/P.shMax:0,'#7fd8ff','#142030');txt(`🛡 ${Math.ceil(P.sh||0)}`,300,44,'#9fe0ff',10,'right');};
+const _v8hud=drawHUD;drawHUD=function(){_v8hud();if(!P)return;bar(18,46,284,2,P.shMax?(P.sh||0)/P.shMax:0,'#7fd8ff','#142030');if(0)txt(`🛡 ${Math.ceil(P.sh||0)}`,300,44,'#9fe0ff',10,'right');};
 
 /* ---- 패링 개편: 피해 없음 · 밀쳐내기 · 가벼운 연출 ---- */
 function txtFx(t,col){addFx({kind:'text',x:cxOf(P),y:P.y-40,txt:t,col,life:45});}
@@ -3877,7 +3877,7 @@ function showHub(){
  const tp=save.cls!=='novice'&&save.style[save.cls]!=='basic'?Math.max(0,treeAvail(save.cls,save.style[save.cls])):0;
  const B=(fn,label,extra,cls)=>`<button class="btn ${cls||''}" onclick="${fn}">${label}${extra||''}</button>`,bd=n=>n?`<span class="badge">${n}</span>`:'';
  const prog=!save.jobDone?`<div style="color:#ffd77a">${save.level>=5?'🎖️ 전직할 수 있습니다!':`🎖️ 전직까지 Lv.${save.level} / 5`}</div>`:canStyle()?'<div style="color:#ffd77a">🏯 유파를 고를 수 있습니다!</div>':save.level<15?`<div class="muted">🏯 유파 개방까지 Lv.${save.level} / 15</div>`:'';
- const wg=wi?GRADES[clamp(wi.g,0,4)]:null;
+ const wg=wi?GRADES[clamp(wi.g,0,5)]:null;
  setUI(`<div class="hub-left" style="width:420px;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:5px;bottom:auto"><div class="hub-title" style="grid-column:1/-1">⛩️ 검의 사당</div>
  ${canJob()?'<button class="btn gold" style="grid-column:1/-1" onclick="showJobChange()">🎖️ 전직 가능! 직업 선택</button>':''}
  ${B("startRun('expedition')",'⚔️ 원정 출발','','gold')}${B('showDungeon()','🕳️ 수련 던전')}
@@ -3899,6 +3899,681 @@ function showHub(){
  적재 ${Math.round(st.load)} / ${st.cap}${st.over>0?' <span style="color:#ff7070">⚖️ 과적</span>':''} · 기믹 <span class="muted">${save.cls==='swordsman'?'이연격 · 대회전베기':GM_DESC[save.cls]||''}</span><br>
  고유 스킬 [${K('skill')}] ${C.skill.name} · 궁극기 [${K('ult')}] ${S.ult.name}<br>
  💰 ${save.gold.toLocaleString()} G · 🪨 ${save.ore} · 🔮 ${save.soul||0} · 🧪 ${save.potionMax}</div>`);
+ if(tn&&save.tutoNote!==tn){save.tutoNote=tn;toast(`📘 수련 목표 ${tn}개 달성 — 보상을 받으세요!`);}
+}
+
+/* ===================== 56. v9: 대규모 개편 — 난이도 · 보스 탄막 · 직업 리메이크 · 궁극기 연출 · 레이드 · 제약 챌린지 · 고대의 대장간 · 아티어 · 랭킹 · PvP 규칙 · 기믹 무기 · 전장 변수 ===================== */
+/* ---- 0. 공통 · 저장 ---- */
+const BOSS_HP_MUL=10; /* 기존 보스 체력 배율 — 보스전이 너무 길면 이 숫자만 바꾸세요 */
+function ensureV9(){ensureV8();for(const k of['shards','marks','chalBest'])if(typeof save[k]!=='number')save[k]=0;if(!Array.isArray(save.hall))save.hall=[];if(!save.rank||!Array.isArray(save.rank.raid))save.rank={wk:'',raid:[],chal:[]};}
+ensureV9();
+const _v9mig=migrateSave;migrateSave=function(raw){_v9mig(raw);ensureV9();
+ for(const it of save.inv||[]){if(it.rar!==5)continue;if((it.g||0)<5)it.g=5;it.p=Math.max(10,it.p||0);if(it.dur==null)it.dur=100;
+  if(!it.curse){const d=NAMED.find(n=>n.id===it.named);it.curse=(d&&d.curse)||'drain';}}
+ save.ver=9;};
+const _v9bn=beginNew;beginNew=function(i){_v9bn(i);ensureV9();writeSave(true);};
+function clearHit(a){delete keyHit[bind(a)];if(ALT_KEYS[a])delete keyHit[ALT_KEYS[a]];delete touchHit[a];}
+const fmtSec=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+let zones=[];
+document.head.insertAdjacentHTML('beforeend','<style>.hub-left .btn{padding:3px 10px;font-size:12px}</style>');
+
+/* ---- 1. 난이도: 일반 몹 체력 · 슈퍼아머 / 보스 강화 ---- */
+const SA_T={skeleton:2,archer:1,oni:4,caster:2,fallen:3};
+const _v9se=spawnEnemy;spawnEnemy=function(type,x,o){const e=_v9se(type,x,o||{});if(e&&e.maxHp<1e8){e.maxHp=e.hp=Math.round(e.maxHp*1.35);e.sa=(SA_T[type]||0)+(e.elite?2:0);}return e;};
+BOSSES.forEach(B=>{B.hp=Math.round(B.hp*BOSS_HP_MUL);B.atk=Math.round(B.atk*1.3);});
+[['homing'],['mortar'],['laser'],['homing','laser'],['laser','homing','mortar']].forEach((a,i)=>BOSSES[i].patterns.push(...a));
+PAL.raid={id:'raid',h:'#2a2e3a',v:'#0a0a0e',p:'#ff3050',c:'#3a3e4e',d:'#1e2028',b:'#ff3050',l:'#2a2c38',f:'#101016',s:'#2a2e3a',e:'#ff3050'};
+BOSSES.push({name:'시련의 파수꾼',title:'최후의 시련',hp:150000,atk:44,spd:1.9,w:46,h:96,ps:6,palette:PAL.raid,head:'helmR',
+ patterns:['combo','laser','homing','dash','mortar','pillars','teleport','volley'],blade:{len:82,wid:7,col:'#e8f0ff',glow:'#ff3050'},gold:[500,650],xp:900,def:0.2,
+ desc:'모든 검의 길을 시험하는 최상위 보스. 물리/마법 면역을 번갈아 두르고, 체력 75·50·25%에서 전멸기를 준비한다.'});
+RIGDEF.b5={head:'helmR',body:'kingarmor',w:'holy',s:1.75,sw:10,ww:7,skirt:6,flare:2,cape:'#14141e',capeHi:'#ff3050',glow:'#ff3050',eyes:[[7,4]]};
+Object.assign(PNAME[0],{homing:'망령 추적탄'});Object.assign(PNAME[1],{mortar:'용암 포격'});Object.assign(PNAME[2],{laser:'성광 광선'});
+Object.assign(PNAME[3],{homing:'심연 추적탄',laser:'마안 광선'});Object.assign(PNAME[4],{laser:'일섬 검광',homing:'비검 추적',mortar:'검우 포격'});
+PNAME[5]={combo:'파수 연참',laser:'심판의 광선',homing:'추적 영혼탄',dash:'시련 돌격',mortar:'파멸 포격',pillars:'봉인 기둥',teleport:'단죄 순보',volley:'시련 탄막',nova:'전멸 서곡'};
+Object.assign(PWIND,{homing:30,mortar:24,laser:48});
+/* 보스 근접 판정 범위 ×1.35 */
+const _v9eh=eHit;eHit=function(e,box,m){if(e.boss){const cx=box.x+box.w/2,by=box.y+box.h;box={x:cx-box.w*0.675,y:by-box.h*1.3,w:box.w*1.35,h:box.h*1.3};}_v9eh(e,box,m);};
+const _v9esf=eSlashFx;eSlashFx=function(e,r,col){_v9esf(e,e.boss?r*1.35:r,col);};
+
+/* ---- 2. 신규 보스 탄막: 유도탄 · 곡사포 · 레이저 ---- */
+const V9PAT={homing:1,mortar:1,laser:1};
+function v9Pattern(e){
+ const sp=1+(e.phase||0)*0.18,ph=e.phase||0,sg=Math.sign(cxOf(P)-cxOf(e))||1,t=++e.t;
+ e.invulnT=e.hide?2:0;e.vx*=0.8;e.face=sg;
+ if(e.st==='homing'){
+  e.tele=t<30?1:0;const n=2+ph;
+  if(t===1)addFx({kind:'tring',x:cxOf(e),y:cyOf(e),r:140,col:'#ff5aa0',life:28});
+  if(t>=30&&(t-30)%14===0&&t<=30+14*(n-1)){for(let i=-1;i<=1;i++)shoot({friend:false,kind:'orb',x:cxOf(e)-10,y:e.y+14,w:20,h:20,vx:sg*3.2,vy:i*2.6-1,life:230,dmg:e.atk*0.55,col:'#ff5aa0',home:80});sfx('shoot');}
+  if(t>=30+14*n+36)bossDone(e,sp);
+ }else if(e.st==='mortar'){
+  e.tele=t<24?1:0;const n=3+ph;
+  if(t>=24&&(t-24)%16===0&&t<=24+16*(n-1)){
+   const tx=clamp(cxOf(P)+rand(-110,110),30,G.roomW-30),T=56,g=0.35,y0=e.y,vy=(FLOOR-28-y0-g*T*(T-1)/2)/T;
+   shoot({friend:false,kind:'rock',x:cxOf(e)-14,y:y0,w:28,h:28,vx:(tx-cxOf(e))/T,vy,grav:g,life:240,dmg:e.atk*0.9,explode:72,col:'#ff8a3c'});
+   addFx({kind:'tmark',x:tx,y:FLOOR-2,r:62,col:'#ff3040',life:T});sfx('shoot');}
+  if(t>=24+16*n+60)bossDone(e,sp);
+ }else{
+  e.tele=t<48?1:0;
+  const beam=dl=>{const y=clamp(cyOf(P),FLOOR-260,FLOOR-20),x0=sg>0?cxOf(e):0,w=sg>0?G.roomW-cxOf(e):cxOf(e);
+   shoot({friend:false,kind:'laser',x:x0,y:y-14,w,h:28,vx:0,vy:0,life:26,delay:dl,dmg:e.atk*1.2,persist:true,cuttable:false,isProj:false,col:'#ff3050'});};
+  if(t===1)beam(48);if(ph>=1&&t===30)beam(40);if(t===49)sfx('cut');
+  if(t>=110)bossDone(e,sp);
+ }
+ physics(e);
+ if(!e.hide&&ov(e,P))hurtPlayer(e.atk*0.5,e);
+}
+const _v9ub=updateBoss;updateBoss=function(e){
+ if(e.raid)raidTick(e);
+ const n0=projs.length;
+ if(V9PAT[e.st]&&!e.pendingPhase&&!(e.stun>0)&&P&&!P.dead)v9Pattern(e);else _v9ub(e);
+ /* 이번 프레임에 보스가 만든 탄 크기 ×1.5 */
+ for(let i=n0;i<projs.length;i++){const p=projs[i];if(p.friend||p.v9s||p.kind==='pillar'||p.kind==='shock'||p.kind==='laser')continue;
+  p.v9s=1;const cx=p.x+p.w/2,cy=p.y+p.h/2;p.w*=1.5;p.h*=1.5;p.x=cx-p.w/2;p.y=cy-p.h/2;if(p.explode)p.explode*=1.2;}
+ /* 안전장치: 한 패턴이 8초 넘게 끝나지 않으면 강제 종료 */
+ if(e.st!=='idle'){e.v9t=(e.v9t||0)+1;if(e.v9t>480){bossDone(e,1);e.v9t=0;}}else e.v9t=0;
+};
+/* 유도탄 조향 */
+const _v9upj=updateProjs;updateProjs=function(){
+ for(const p of projs){if(!(p.home>0)||p.friend||p.dead||p.delay>0||!P)continue;p.home--;
+  const a=Math.atan2(cyOf(P)-cyOf(p),cxOf(P)-cxOf(p)),s=Math.hypot(p.vx,p.vy)||4,ca=Math.atan2(p.vy,p.vx);let d=a-ca;
+  while(d>Math.PI)d-=6.283;while(d<-Math.PI)d+=6.283;const na=ca+clamp(d,-0.06,0.06);p.vx=Math.cos(na)*s;p.vy=Math.sin(na)*s;}
+ _v9upj();};
+/* 레이저 그리기 (예고선 → 광선) */
+const _v9dpj=drawProjs;drawProjs=function(){
+ const L=[],keep=projs;projs=keep.filter(p=>{if(p.kind==='laser'){L.push(p);return false;}return true;});
+ try{_v9dpj();}finally{projs=keep;}
+ for(const p of L){ctx.save();
+  if(p.delay>0){ctx.globalAlpha=0.3+0.3*Math.sin(G.t*0.6);ctx.fillStyle=p.col;ctx.fillRect(p.x,cyOf(p)-2,p.w,4);ctx.restore();continue;}
+  ctx.globalCompositeOperation='lighter';ctx.shadowColor=p.col;ctx.shadowBlur=18;ctx.fillStyle=hexA(p.col,0.7);ctx.fillRect(p.x,p.y,p.w,p.h);
+  ctx.fillStyle='#ffffff';ctx.fillRect(p.x,cyOf(p)-p.h*0.18,p.w,p.h*0.36);ctx.restore();}};
+/* ---- 3. 직업 리메이크 ---- */
+STYLES.knight.iron.parryWin=11;STYLES.knight.guard.parryWin=11;STYLES.knight.basic.parryWin=11;
+for(const k of['iron','rush','grap','basic'])STYLES.brawler[k].dodge={type:'dash',spd:7,dur:6,inv:18,cd:22};
+for(const k of['rapid','blast'])STYLES.bowman[k].charge={time:34,shot:'frost',mul:2.6,txt:'마폭시!',hit:rh(0,20,null,{lunge:-3})};
+STYLES.swordsman.iaido.desc='공격 키를 길게 눌러 기를 모은 뒤 놓으면 발도술. 집중력 50 소모 · 모으는 동안 무방비(받는 피해 1.5배) · 빗나가면 긴 빈틈.';
+STYLES.knight.iron.desc+=' 공격 직전(약 0.18초) 막기 = 저스트 가드: 피해 무효 + 탄막 반사 + 자동 반격.';STYLES.knight.guard.desc+=' 저스트 가드 시 자동 반격.';
+for(const k of['rapid','blast'])STYLES.bowman[k].desc+=' 공격 키를 길게 누르면 범위 둔화 마폭시. 이동하며 사격 가능.';
+STYLES.bowman.snipe.desc+=' 관통 저격에 맞은 적은 느려진다. 이동하며 사격 가능.';
+for(const k of['iron','rush','grap'])STYLES.brawler[k].desc+=' 회피는 짧은 위빙 — 공격을 흘리면 반격 기회(확정 치명 3회). 연타로 투기 게이지 상승.';
+for(const k of['flame','thunder','void'])STYLES.mage[k].desc+=' 평타로 마력을 모으면 검에 원소 인챈트. 마력이 피해 일부를 흡수한다.';
+for(const k of['thunder','ward','shiki'])STYLES.shaman[k].desc+=' 부적에 맞은 적은 표식 — 부적진 사용 시 연쇄 폭발 · 패턴 캔슬. 부적진은 둔화 장판을 남긴다.';
+HIDDEN.swordsman.hint='발도의 기를 모으는 도중, 적의 칼끝이 닿는 순간 정확히 튕겨내라.';
+HIDDEN.swordsman.desc='발도류: 기를 모으는 중 패링 키로 적의 공격을 정확히 막아내면(패링 판정 안) 피해 없이 상대를 꿰뚫어 벤다. 그냥 맞으면 무방비라 피해 1.5배.';
+const ENCH_N={fire:'화염',zap:'전격',ice:'빙결'};
+
+/* 검객 발도: 집중력 소모 · 헛베기 빈틈 */
+const _v9chs=chargedSlash;chargedSlash=function(S){
+ if(save.cls==='swordsman'&&S.charge&&!S.charge.shot){
+  if((P.focus||0)<50){deny('집중력 부족');pressAttack(S);return;}
+  P.focus-=50;_v9chs(S);P.iaiSet=P.atkHit;P.iaiChk=P.atkDur+2;return;}
+ _v9chs(S);};
+/* 살가르기 · 일순: 자동 발동 제거 → 발도 차징 중 '패링 판정 안'에서 막아낼 때만 */
+function tryIssun(src){
+ if(!P||P.dead||G.v9wipe||save.cls!=='swordsman'||save.style.swordsman!=='iaido'||!P.charging||P.chargeT<8||!(P.parryT>0))return false;
+ P.charging=false;P.chargeT=0;P.inv=50;P.parryT=0;P.parryActive=false;save.rec.parries++;P.focus=Math.min(100,(P.focus||0)+30);
+ if(src&&src.isProj)src.dead=true;
+ const tgt=src&&!src.isProj&&src.hp!==undefined&&!src.dead?src:null,ox=cxOf(P);
+ if(tgt){const side=cxOf(tgt)>cxOf(P)?1:-1;P.x=clamp(cxOf(tgt)+side*(tgt.w/2+24)-P.w/2,0,G.roomW-P.w);P.face=-side;}
+ else P.x=clamp(P.x+P.face*160,0,G.roomW-P.w);
+ const nx=cxOf(P);strike({x:Math.min(ox,nx)-40,y:P.y-30,w:Math.abs(nx-ox)+80,h:P.h+60},6,{hitset:new Set(),kb:12,heavy:true,forceCrit:true,gm:true,noStack:true,col:'#fff2b0'});
+ if(tgt&&!tgt.dead)tgt.stun=Math.max(tgt.stun||0,tgt.boss?60:120);
+ addFx({kind:'line',x1:ox,y1:cyOf(P),x2:nx,y2:cyOf(P),col:'#fff2b0',life:18,w:14});signatureCut('#fff2b0',true);G.hitstop=Math.max(G.hitstop,8);
+ discoverHidden('swordsman');return true;}
+
+/* 철벽기사 저스트 가드 자동 반격 */
+function justGuard(guarding){const S=curStyle(),A=P.st.atk,f=P.face;
+ for(const p of projs)if(!p.friend&&!p.dead&&p.cuttable!==false&&(cxOf(p)-cxOf(P))*f>-30&&Math.abs(cxOf(p)-cxOf(P))<280&&Math.abs(cyOf(p)-cyOf(P))<150){
+  p.friend=true;p.vx=f*Math.max(9,Math.abs(p.vx)*1.3);p.vy=0;p.dmg=A*2;p.hit=new Set();p.life=60;p.col='#9fb4ff';p.home=0;}
+ strike(frontBox(170,130),2.4,{hitset:new Set(),kb:12,heavy:true,noStack:true,gm:true,noCut:true,col:S.col});
+ if(P.ground)firePlayerProj('shock',S,{dmg:A*1.6},f);
+ addFx({kind:'ring',x:cxOf(P)+f*20,y:cyOf(P),r:10,max:130,col:'#9fb4ff',life:16});
+ addFx({kind:'text',x:cxOf(P),y:P.y-56,txt:guarding?'저스트 가드! 반격':'반격!',col:'#9fb4ff',life:40});sfx('heavy');}
+const _v9ps=parrySuccess;parrySuccess=function(src){const g=!!(P&&P.guard);_v9ps(src);if(!P)return;
+ P.focus=Math.min(100,(P.focus||0)+25);if(save.cls==='knight')justGuard(g);};
+
+/* 권사 위빙 · 마검사 인챈트 */
+function weaveSuccess(){P.weaveT=0;P.critQ=3;P.hasteT=Math.max(P.hasteT,90);P.inv=Math.max(P.inv,24);P.fury=Math.min(100,(P.fury||0)+20);P.furyT=70;
+ sfx('parry');sparks(cxOf(P),cyOf(P),'#ffe07a',10);txtFx('위빙! 반격 기회','#ffe07a');}
+function enchHit(e){const k=P.enchK;
+ if(k==='fire')e.burn=Math.max(e.burn||0,180);
+ else if(k==='zap'){e.stun=Math.max(e.stun||0,e.boss?4:14);const t=enemies.find(x=>x!==e&&!x.dead&&dist(x,e)<170);
+  if(t){addFx({kind:'zap',x1:cxOf(e),y1:cyOf(e),x2:cxOf(t),y2:cyOf(t),col:'#ffe95c',life:10});damageEnemy(t,P.st.atk*0.8,{gm:true,noUlt:true,noStack:true,kb:1,col:'#ffe95c'});}}
+ else{e.slowT=Math.max(e.slowT||0,150);if(!e.boss&&Math.random()<0.2)e.stun=Math.max(e.stun||0,45);}}
+
+/* 플레이어 피격: 위빙 · 발도 무방비 · 세트 보호막 · 마력 흡수 · 원샷 */
+const _v9hurt=hurtPlayer;hurtPlayer=function(dmg,src){
+ if(!P||P.dead)return false;
+ if(!G.v9wipe){
+  if(save.cls==='brawler'&&P.weaveT>0){weaveSuccess();return false;}
+  const land=P.inv<=0&&!(P.parryT>0)&&!(P.fortT>0)&&!P.guard&&!(G.mode==='training'&&G.trainInv);
+  if(land){
+   if(save.cls==='swordsman'&&P.charging)dmg*=1.5;
+   if(G.mode!=='pvp'&&!(P.setCd>0)&&artierInfo().n>=4){P.setCd=1200;P.inv=Math.max(P.inv,180);addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:70,col:'#ff5a7a',life:20});txtFx('✦ 시련의 보호막','#ff5a7a');sfx('parry');return false;}
+   if(save.cls==='mage'&&(P.mana||0)>=5){const a=Math.min(dmg*0.4,P.mana);P.mana-=a;dmg-=a;addNum(cxOf(P)-12,P.y-14,Math.round(a),'#b07bff');}
+  }}
+ const r=_v9hurt(dmg,src);
+ if(r&&P&&!P.dead&&!P.guard&&chalOn('oneShot')){P.hp=0;P.dead=true;P.sk=null;P.ul=null;addFx({kind:'banner',txt:'☠️ 원샷 — 즉사',col:'#ff5a6a',life:80});onPlayerDeath();}
+ return r;};
+
+/* 적 피격: 레이드 면역 · 룰렛 대검 · 슈퍼아머 · 전멸기 집계 · 마력/투기 */
+const _v9dmg=damageEnemy;damageEnemy=function(e,base,o){o=o||{};
+ if(!e||e.dead)return 0;
+ if(e.raid&&e.immune){const mag=!o.melee;if((e.immune==='phys'&&!mag)||(e.immune==='mag'&&mag))base*=0.1;}
+ if(o.melee&&gimWeapon()==='gamble')base*=0.35;
+ const st0=e.stagger||0,vx0=e.vx,vy0=e.vy,r=_v9dmg(e,base,o);
+ if(!(r>0))return r;
+ if(e.ai!=='rival'){
+  if(e.dps)e.dps.got+=r;
+  if(!e.dead&&e.sa&&!e.boss){e.saP=(e.saP||0)+1;if(e.saP<e.sa){e.stagger=st0;e.vx=vx0+(e.vx-vx0)*0.3;e.vy=vy0;}else{e.saP=0;addNum(cxOf(e),e.y-20,'아머 브레이크','#ffb08a');}}}
+ if(o.melee&&!o.gm&&P){const c=save.cls;
+  if(c==='mage'){if(P.ench>0){if(!e.dead&&e.ai!=='rival')enchHit(e);}
+   else{P.mana=Math.min(100,(P.mana||0)+7);if(P.mana>=100){P.mana=0;P.ench=480;P.enchK=({flame:'fire',thunder:'zap',void:'ice'})[save.style.mage]||'fire';
+    addFx({kind:'banner',txt:`✨ 마검 인챈트 — ${ENCH_N[P.enchK]}`,col:curStyle().col,life:70});sfx('skill');}}}
+  else if(c==='brawler'){P.fury=Math.min(100,(P.fury||0)+5);P.furyT=70;if(P.fury>=60)sparks(cxOf(e),cyOf(e),'#ffe07a',4);}}
+ return r;};
+
+/* 적 상태: 둔화 · 혼란 · 부적 표식 */
+const _v9ue=updateEnemy;updateEnemy=function(e){const xb=e.x,yb=e.y;_v9ue(e);if(e.dead||e.ai==='rival')return;
+ if(e.slowT>0){e.slowT--;e.x=xb+(e.x-xb)*0.45;if(e.fly)e.y=yb+(e.y-yb)*0.45;if(G.t%8===0)parts.push({x:cxOf(e)+rand(-8,8),y:cyOf(e),vx:0,vy:-0.5,life:16,max:16,col:'#9fe8ff',sz:2,g:0});}
+ if(e.confuse>0){e.confuse--;if(!e.boss)e.x=clamp(xb-(e.x-xb),0,G.roomW-e.w);}
+ if(e.seal>0)e.seal--;};
+/* 투사체: 마폭시 둔화 · 저격 둔화 · 부적 표식 */
+const _v9ep=explodeProj;explodeProj=function(p){_v9ep(p);
+ if(p.friend&&p.slow){for(const e of enemies)if(!e.dead&&Math.hypot(cxOf(e)-cxOf(p),cyOf(e)-cyOf(p))<p.explode+e.w/2)e.slowT=Math.max(e.slowT||0,p.slow);
+  addFx({kind:'ring',x:cxOf(p),y:cyOf(p),r:8,max:p.explode,col:'#9fe8ff',life:16});}};
+const _v9xp=extraProj;extraProj=function(kind,S,f,A){
+ if(kind==='frost')return{kind:'arrow',w:30,h:8,vx:f*17,life:60,dmg:A*2.6,col:'#9fe8ff',explode:90,slow:150};
+ const T=_v9xp(kind,S,f,A);
+ if(kind==='sarrow'){const pv=T.onHit;T.onHit=(e,p)=>{if(pv)pv(e,p);e.slowT=Math.max(e.slowT||0,120);};}
+ if(kind==='tali'||kind==='tbolt'){const pv=T.onHit;T.onHit=(e,p)=>{if(pv)pv(e,p);e.seal=300;};}
+ return T;};
+/* 반사 찌르기 창: 칼질로 적 탄막 반사 */
+const _v9st=strike;strike=function(box,mult,o){
+ if(gimWeapon()==='lance')for(const p of projs)if(!p.friend&&!p.dead&&p.cuttable!==false&&ov(box,p)){
+  p.friend=true;p.vx=(p.vx?-p.vx:P.face*10)*1.3;p.vy=-(p.vy||0)*0.5;p.dmg=P.st.atk*2.2;p.hit=new Set();p.life=70;p.col='#9fe0ff';p.home=0;burst(cxOf(p),cyOf(p),'#9fe0ff',6,3,{g:0});sfx('parry');}
+ return _v9st(box,mult,o);};
+
+/* 스킬 · 궁극기 · 회피 · 회복 (챌린지 제약 포함) */
+function sealBurst(S){const A=P.st.atk*skMul();let n=0;
+ for(const e of enemies){if(e.dead||!(e.seal>0))continue;e.seal=0;n++;
+  damageEnemy(e,A*2.2,{kb:6,heavy:true,gm:true,noStack:true,col:S.col});if(e.dead)continue;
+  if(e.boss){if(e.st!=='idle'&&e.st!=='phase')bossDone(e,1);e.stun=Math.max(e.stun||0,24);}else{e.st='idle';e.t=0;e.stun=Math.max(e.stun||0,60);}
+  addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:8,max:90,col:S.col,life:14});
+  for(const t of enemies)if(t!==e&&!t.dead&&dist(t,e)<90)damageEnemy(t,A*1.1,{kb:4,gm:true,noStack:true,col:S.col});}
+ if(n){txtFx(`연쇄 폭부 ×${n} — 패턴 캔슬`,S.col);sfx('boom');shake(8);}}
+const _v9us=useSkill;useSkill=function(S){if(chalOn('seal')){deny('제약: 스킬 봉인');return;}
+ const cd0=P.skillCd;_v9us(S);if(cd0>0||!(P.skillCd>0))return;
+ if(save.cls==='shaman'){zones.push({kind:'field',x:cxOf(P)+P.face*110,y:P.y+P.h,r:110,life:360,dmg:P.st.atk*skMul()*0.35,col:S.col,t:0});sealBurst(S);}};
+const _v9cu=castUlt;castUlt=function(S){if(chalOn('seal')){if(P.ultG>=100)deny('제약: 궁극기 봉인');return;}_v9cu(S);};
+const _v9sdg=startDodge;startDodge=function(S){if(chalOn('noDodge')){deny('제약: 회피 봉인');return;}_v9sdg(S);};
+const _v9heal=healP;healP=function(n,silent){if(chalOn('noHeal'))return;_v9heal(n,silent);};
+const _v9pot=usePotion;usePotion=function(){if(chalOn('noHeal')){deny('제약: 회복 봉인');return;}_v9pot();};
+
+/* 능력치: 아티어 세트/저주 · 투기 공속 · 룬 */
+const _v9cs=calcStats;calcStats=function(){const r=_v9cs();
+ if(G.mode!=='pvp'){const A=artierInfo();if(A.n>=2)r.ultGain+=0.4;if(A.fragile)r.def-=0.08*A.fragile;if(A.cost)r.cdr-=0.1*A.cost;}
+ if(P){if(save.cls==='brawler')r.aspd*=1+Math.min(100,P.fury||0)/200;const rt=P.runeT||{};if(rt.rage>0)r.atk*=1.5;if(rt.giant>0)r.atk*=1.3;}
+ return r;};
+const _v9sps=spendSta;spendSta=function(n){const A=G.mode!=='pvp'?artierInfo():{cost:0};_v9sps(n*(1+0.3*A.cost));};
+
+/* 매 프레임 */
+const _v9upd=updatePlayer;updatePlayer=function(){
+ if(!P)return _v9upd();
+ if(P.focus==null)P.focus=50;if(!P.runeT)P.runeT={rage:0,giant:0};
+ const wasDodge=P.dodgeT>0,pf=P.atkFired;
+ if(P.v9stuck>0){P.v9stuck--;for(const a of['attack','dodge','parry','skill','ult','jump'])clearHit(a);P.vx*=0.5;}
+ /* PvP 탈출기: 탈출 게이지 50 이상 + 피격 중 회피 키 */
+ if(G.mode==='pvp'&&!P.dead&&(P.esc||0)>=50&&(P.hurtT>0||P.pvpStun>0)&&hit('dodge')){
+  P.esc-=50;P.pvpStun=0;P.hurtT=0;P.inv=Math.max(P.inv,45);netSend({t:'esc',x:cxOf(P)});
+  addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:110,col:'#9fe0ff',life:16});txtFx('탈출!','#9fe0ff');sfx('parry');clearHit('dodge');}
+ _v9upd();
+ if(!P)return;
+ for(const k of['weaveT','confT','setCd','furyT','ench'])if(P[k]>0)P[k]--;
+ for(const k in P.runeT)if(P.runeT[k]>0)P.runeT[k]--;
+ if(P.dead)return;
+ const S=curStyle(),c=save.cls;
+ P.focus=Math.min(100,P.focus+0.06);
+ if(!(P.furyT>0)&&P.fury>0)P.fury=Math.max(0,P.fury-1.2);
+ if(P.iaiChk>0&&--P.iaiChk===0){if(P.iaiSet&&P.iaiSet.size===0){P.lockT=Math.max(P.lockT,70);P.v9stuck=40;cancelAttack();txtFx('헛베기 — 빈틈!','#ff9a9a');sfx('deny');}P.iaiSet=null;}
+ const dashStart=!wasDodge&&P.dodgeT>0;
+ if(dashStart&&c==='bowman'){for(let i=-1;i<=1;i++)firePlayerProj('parrow',S,{dmg:P.st.atk*0.7,vy:i*2.2});addFx({kind:'text',x:cxOf(P),y:P.y-30,txt:'회피 사격',col:S.col,life:30});}
+ if(dashStart&&c==='brawler')P.weaveT=18;
+ if(G.mode!=='pvp'&&G.mode!=='training'){const A=artierInfo();if(A.drain)P.hp=Math.max(1,P.hp-P.maxHp*0.0000834*A.drain);}
+ const gw=gimWeapon();
+ if(gw&&P.atkT>0&&P.atkFired&&!pf){const fin=P.atkI===S.combo.length-1;
+  if(gw==='gamble')gambleSwing(S);else if(fin){if(gw==='swap')throwSwap(S);else if(gw==='hammer'&&P.ground)hammerField(S);else if(gw==='fan')fanBubble(S);}}
+};
+
+/* ---- 4. 궁극기 연출 차별화 (빗금 참격은 검객 전용) ---- */
+const _v9ru=releaseUlt;releaseUlt=function(S){_v9ru(S);ultSignature(S);};
+function ultSignature(S){const c=save.cls,col=S.ult.col;
+ switch(c){
+  case'swordsman':addFx({kind:'u_sword',col,life:58});break;
+  case'knight':{const f=P.face;let n=0;
+   for(const p of projs)if(!p.friend&&!p.dead&&(cxOf(p)-cxOf(P))*f>-40&&Math.abs(cxOf(p)-cxOf(P))<480){p.dead=true;n++;burst(cxOf(p),cyOf(p),col,6,3,{g:0});}
+   addFx({kind:'u_wall',x:cxOf(P)+f*70,y:P.y+P.h,col,life:70});addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:20,max:260,col,life:26});if(n)txtFx(`탄막 소거 ×${n}`,col);break;}
+  case'mage':addFx({kind:'u_vortex',col,life:80});G.distort=Math.max(G.distort,10);break;
+  case'bowman':addFx({kind:'u_rain',col,life:80});break;
+  case'shaman':addFx({kind:'u_bagua',col,life:90});break;
+  case'brawler':G.zoom=1.35;addFx({kind:'u_fist',col,life:46});break;
+  default:petals(cxOf(P),cyOf(P),30,col);addFx({kind:'bloom',x:cxOf(P),y:cyOf(P),col,life:28});}}
+const _v9fxt=fxTick;fxTick=function(){_v9fxt();
+ for(const f of fx){
+  if(f.kind==='u_sword'&&f.t>=28&&!f.boom){f.boom=1;shake(18);G.flash={col:'#ffffff',t:12};signatureCut(f.col,true);sfx('boom');}
+  if(f.kind==='u_fist'){if(f.t<20)G.zoom=1.35;if(f.t>=22&&!f.boom&&P){f.boom=1;shake(14);sfx('boom');G.slice={t:0,life:22,sx:cxOf(P)-G.camX,sy:cyOf(P),k:0.18*P.face,col:f.col,amp:18};G.distort=10;}}}};
+/* ---- 5. 궁극기 연출 그리기 ---- */
+function drawUSword(f){ctx.save();
+ const dk=f.t<28?0.6:0.6*Math.max(0,1-(f.t-28)/(f.life-28));ctx.fillStyle=`rgba(0,0,0,${dk})`;ctx.fillRect(0,0,W,H);
+ ctx.globalCompositeOperation='lighter';
+ for(let i=0;i<9;i++){const st=i*3;if(f.t<st)continue;const fade=Math.max(0,1-(f.t-st)/30);if(fade<=0)continue;
+  const k=(i%2?1:-1)*(0.3+((i*37)%25)/100),cy=60+(i*97)%420,pr=Math.min(1,(f.t-st)/5),x0=-40,x1=x0+(W+80)*pr,y0=cy-k*W/2,y1=y0+k*(x1-x0);
+  ctx.globalAlpha=fade;ctx.strokeStyle=f.col;ctx.lineWidth=10*fade+2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=3*fade+1;ctx.stroke();}
+ if(f.t>=28){const e=(f.t-28)/(f.life-28),r=60+e*560;ctx.globalAlpha=Math.max(0,1-e);
+  const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,r);g.addColorStop(0,'rgba(255,255,255,0.95)');g.addColorStop(0.4,hexA(f.col,0.6));g.addColorStop(1,hexA(f.col,0));ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+ ctx.restore();}
+function drawURain(f){const fade=Math.max(0,Math.min(1,f.t/8,(f.life-f.t)/20));ctx.save();ctx.globalCompositeOperation='lighter';
+ for(let i=0;i<160;i++){const sp=14+(i%5)*3,x=(i*61.7)%(W+200)-100,y=((i*137)%H+f.t*sp)%(H+60)-60;
+  ctx.globalAlpha=fade*(0.4+(i%3)*0.2);ctx.strokeStyle=i%4?f.col:'#ffffff';ctx.lineWidth=i%6?1.5:2.5;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y-22);ctx.stroke();}
+ ctx.restore();}
+function drawUBagua(f){const fade=Math.max(0,Math.min(1,f.t/12,(f.life-f.t)/20)),cx=W/2,cy=H/2-10,R=200,rot=f.t*0.03,cols=['#ff5050','#ffd34d','#7dff8a','#50d0ff','#c070ff'];
+ ctx.save();ctx.globalAlpha=fade*0.6;ctx.translate(cx,cy);ctx.rotate(rot);ctx.globalCompositeOperation='lighter';
+ for(let i=0;i<8;i++){const a0=i*Math.PI/4-Math.PI/8,a1=a0+Math.PI/4;ctx.fillStyle=hexA(cols[i%5],0.35);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a0)*R,Math.sin(a0)*R);ctx.lineTo(Math.cos(a1)*R,Math.sin(a1)*R);ctx.closePath();ctx.fill();
+  ctx.save();ctx.rotate(i*Math.PI/4+Math.PI/2);for(let b=0;b<3;b++){const yy=-R*0.8+b*14,broken=(i>>b)&1;ctx.fillStyle=cols[(i+b)%5];if(broken){ctx.fillRect(-30,yy,26,8);ctx.fillRect(4,yy,26,8);}else ctx.fillRect(-30,yy,60,8);}ctx.restore();}
+ ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<=8;i++){const a=i*Math.PI/4-Math.PI/8,x=Math.cos(a)*R,y=Math.sin(a)*R;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+ ctx.globalCompositeOperation='source-over';ctx.rotate(-rot*3);
+ ctx.fillStyle='#f0f0f0';ctx.beginPath();ctx.arc(0,0,40,-Math.PI/2,Math.PI/2);ctx.fill();ctx.fillStyle='#111';ctx.beginPath();ctx.arc(0,0,40,Math.PI/2,Math.PI*1.5);ctx.fill();
+ ctx.fillStyle='#f0f0f0';ctx.beginPath();ctx.arc(0,-20,20,0,7);ctx.fill();ctx.fillStyle='#111';ctx.beginPath();ctx.arc(0,20,20,0,7);ctx.fill();
+ ctx.fillStyle='#111';ctx.beginPath();ctx.arc(0,-20,6,0,7);ctx.fill();ctx.fillStyle='#f0f0f0';ctx.beginPath();ctx.arc(0,20,6,0,7);ctx.fill();
+ ctx.restore();}
+const _v9fs=drawFxScreen;drawFxScreen=function(){_v9fs();for(const f of fx){if(f.kind==='u_sword')drawUSword(f);else if(f.kind==='u_rain')drawURain(f);else if(f.kind==='u_bagua')drawUBagua(f);}};
+function drawUWorld(){if(!P)return;
+ for(const f of fx){if(f.kind!=='u_wall'&&f.kind!=='u_vortex'&&f.kind!=='u_fist')continue;
+  const fade=Math.max(0,Math.min(1,f.t/6,(f.life-f.t)/15));ctx.save();ctx.globalAlpha=fade;
+  if(f.kind==='u_wall'){const x=f.x,y=f.y,h=230,w=60;ctx.fillStyle=hexA(f.col,0.3);ctx.fillRect(x-w/2,y-h,w,h);ctx.strokeStyle=hexA(f.col,0.9);ctx.lineWidth=2;
+   for(let yy=y-h;yy<y;yy+=16){const off=((yy-y+h)/16)%2?10:0;for(let xx=x-w/2+off;xx<x+w/2;xx+=20)ctx.strokeRect(xx,yy,Math.min(20,x+w/2-xx),16);}
+   ctx.globalCompositeOperation='lighter';ctx.fillStyle=hexA('#ffffff',0.35);ctx.beginPath();ctx.moveTo(x,y-h-34);ctx.lineTo(x+w*0.9,y-h+10);ctx.lineTo(x+w*0.6,y-h+80);ctx.lineTo(x,y-h+110);ctx.lineTo(x-w*0.6,y-h+80);ctx.lineTo(x-w*0.9,y-h+10);ctx.closePath();ctx.fill();
+   ctx.strokeStyle=f.col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(cxOf(P),cyOf(P),42+Math.sin(f.t*0.3)*4,0,7);ctx.stroke();}
+  else if(f.kind==='u_vortex'){const x=cxOf(P),y=cyOf(P);ctx.globalCompositeOperation='lighter';
+   for(let arm=0;arm<6;arm++)for(let r=12;r<170;r+=6){const a=arm*1.047+r*0.035+f.t*0.22;ctx.fillStyle=r%18?hexA(f.col,0.6):'#ffffff';ctx.fillRect(Math.round(x+Math.cos(a)*r)-2,Math.round(y+Math.sin(a)*r*0.55)-2,4,4);}
+   ctx.strokeStyle='#dff3ff';ctx.lineWidth=2;for(let i=0;i<8;i++){const a=f.t*0.3+i*0.785;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*60,y+Math.sin(a)*34);ctx.lineTo(x+Math.cos(a)*110,y+Math.sin(a)*60);ctx.stroke();}}
+  else{const x=cxOf(P),y=cyOf(P),fc=P.face;ctx.globalCompositeOperation='lighter';
+   for(let i=0;i<12;i++){if((G.t+i)%3===0)continue;const px=x+fc*(30+(i*47+f.t*9)%140),py=y-40+(i*29)%80,r=9+(i%3)*3;
+    ctx.fillStyle=hexA(f.col,0.55);ctx.beginPath();ctx.arc(px,py,r,0,7);ctx.fill();ctx.strokeStyle=hexA('#ffffff',0.7);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px-fc*r*2.4,py);ctx.lineTo(px-fc*r,py);ctx.stroke();}}
+  ctx.restore();}}
+
+/* ---- 6. 아티어 · 고대의 대장간 ---- */
+GRADES.push({n:'아티어',col:'#ff5a7a',mul:2.6,max:25});
+const CURSE={drain:'체력 지속 감소 (초당 최대 HP 0.5%)',cost:'스킬 쿨감 -10% · 기력 소모 +30%',fragile:'받는 피해 +8%'};
+const GIMD={swap:'콤보 마지막 타격 시 단검 투척 — 적중한 적과 위치 교체',lance:'칼질로 적 탄막을 반대 방향으로 반사',hammer:'마지막 타격 시 중력장 (끌어당김 ↔ 튕겨냄 교대)',fan:'마지막 타격 시 거품 — 맞은 적은 3초간 이동 반전',gamble:'휘두를 때마다 1% 초대형 폭발 · 99% 물방울 (평타 피해 감소)'};
+NAMED.push(
+ {id:'art_head',slot:'head',rar:5,name:'시련의 투구',icon:'🪖',st:{hp:40,def:0.05,crit:0.03},w:6},
+ {id:'art_body',slot:'body',rar:5,name:'시련의 흉갑',icon:'🛡️',st:{hp:80,def:0.08,atk:0.05},w:12},
+ {id:'art_legs',slot:'legs',rar:5,name:'시련의 각반',icon:'👖',st:{hp:40,spd:0.06,aspd:0.05},w:6},
+ {id:'art_feet',slot:'feet',rar:5,name:'시련의 장화',icon:'👢',st:{spd:0.08,cdr:0.05,crit:0.03},w:4},
+ {id:'gm_swap',src:'shop',cost:3000,slot:'weapon',rar:2,name:'위치 교체 단검',icon:'🔀',st:{atk:0.04},w:2,gim:'swap'},
+ {id:'gm_lance',src:'shop',cost:3000,slot:'weapon',rar:2,name:'반사 찌르기 창',icon:'↩️',st:{atk:0.03},w:5,gim:'lance'},
+ {id:'gm_hammer',src:'shop',cost:3200,slot:'weapon',rar:2,name:'중력 왜곡 망치',icon:'🧲',st:{atk:0.05},w:9,gim:'hammer'},
+ {id:'gm_fan',src:'shop',cost:2800,slot:'weapon',rar:2,name:'조종 반전 부채',icon:'🎐',st:{atk:0.03},w:2,gim:'fan'},
+ {id:'gm_gamble',src:'shop',cost:2500,slot:'weapon',rar:2,name:'로또 룰렛 대검',icon:'🎰',st:{atk:0.02},w:10,gim:'gamble'});
+const ART={mumyeong:{m:6,g:12000,req:0,curse:'drain'},ardis_sword:{m:6,g:12000,req:3,curse:'cost'},moon_dual:{m:6,g:12000,req:3,curse:'drain'},
+ void_mage:{m:6,g:12000,req:5,curse:'cost'},nakil_bow:{m:6,g:12000,req:5,curse:'fragile'},miko_brush:{m:6,g:12000,req:5,curse:'drain'},
+ oni_fist:{m:6,g:12000,req:3,curse:'fragile'},ruin_ring:{m:4,g:8000,req:0,curse:'fragile'},
+ art_head:{m:3,g:6000,req:0,curse:'cost'},art_body:{m:4,g:8000,req:3,curse:'drain'},art_legs:{m:3,g:6000,req:0,curse:'fragile'},art_feet:{m:3,g:6000,req:8,curse:'cost'}};
+const ART_IDS=Object.keys(ART);
+for(const id of ART_IDS){const n=NAMED.find(x=>x.id===id);if(!n)continue;const a=ART[id];n.src='raid';n.curse=a.curse;
+ n.how=`고대의 대장간 제작 — 🔱 징표 ${a.m} · ${a.g.toLocaleString()}G${a.req?` · 제약 챌린지 ${a.req}점 이상`:''}`;}
+/* 의뢰 · 업적 보상의 아티어 → 아티어 징표 */
+for(const q of QUESTS)if(q.rw.art){q.rw.mark=2;delete q.rw.art;}
+const _v9rw=rwText;rwText=function(r){const s=_v9rw(r);return r.mark?(s?s+' · ':'')+`🔱 아티어 징표 ${r.mark}`:s;};
+const _v9cq=claimQuest;claimQuest=function(id){const q=QUESTS.find(x=>x.id===id),was=save.quest[id];_v9cq(id);
+ if(q&&!was&&save.quest[id]&&q.rw.mark){ensureV9();save.marks+=q.rw.mark;writeSave(true);keepScroll(showQuests);}};
+const EVO_COST={s:20,m:3,g:8000};
+function durF(it){return it&&(it.g||0)>=5?0.7+0.3*clamp(it.dur==null?100:it.dur,0,100)/100:1;}
+function weaponMul(c){const it=equippedWeaponOf(c||save.cls);return it?GRADES[clamp(it.g|0,0,5)].mul*(1+(it.p||0)*0.08)*durF(it):1;}
+function eqStats(){
+ const aff=CLASSES[save.cls].armor||'mid',out={},eq=(save.equip&&save.equip[save.cls])||{};let load=0;
+ for(const[s]of SLOTS){const it=itemById(eq[s]);if(!it)continue;if(s==='weapon'&&it.cls&&it.cls!==save.cls)continue;load+=it.w||0;
+  let mul=1;if(it.heavy===true)mul=aff==='heavy'?1.25:aff==='mid'?1.1:1;else if(it.heavy===false)mul=aff==='light'?1.25:aff==='mid'?1.1:1;
+  if(s!=='weapon'&&(it.g||0)>=5)mul*=(1+Math.max(0,(it.p||0)-10)*0.05)*durF(it);
+  for(const k in it.st)out[k]=(out[k]||0)+it.st[k]*mul;}
+ out.load=load;out.cap=capacity();return out;}
+function artierInfo(){const eq=(save.equip&&save.equip[save.cls])||{},o={n:0,drain:0,cost:0,fragile:0};
+ for(const[s]of SLOTS){const it=itemById(eq[s]);if(!it||(it.rar!==5&&(it.g||0)<5))continue;if(s==='weapon'&&it.cls&&it.cls!==save.cls)continue;o.n++;if(it.curse&&o[it.curse]!=null)o[it.curse]++;}
+ return o;}
+function gimWeapon(){if(!save||!save.equip)return'';const w=equippedWeaponOf(save.cls);return(w&&w.gim)||'';}
+const _v9mk=mkNamed;mkNamed=function(id){const it=_v9mk(id);if(it.rar===5){it.g=5;it.p=10;it.dur=100;}return it;};
+const _v9il=itemLines;itemLines=function(it){const s=_v9il(it),x=[];
+ if(it.gim)x.push(`<span style="color:#9fe0ff">🎲 기믹: ${GIMD[it.gim]} · 모든 직업 장착 가능</span>`);
+ if(it.rar===5||(it.g||0)>=5){
+  if(it.slot!=='weapon'&&it.uid)x.push(`<span style="color:#ff5a7a">[아티어] +${it.p||0}/${GRADES[5].max}</span>`);
+  if(it.uid&&it.dur!=null&&it.dur<100)x.push(`<span style="color:#ff9a7a">내구도 ${it.dur}% (능력치 ${Math.round((1-durF(it))*100)}% 감소)</span>`);
+  if(it.curse)x.push(`<span style="color:#ff7070">☠ 저주: ${CURSE[it.curse]}</span>`);
+  x.push('<span style="color:#ffb0c0">✦ 시련 세트 — 2부위: 궁극기 충전 +40% · 4부위: 피격 시 3초 무적</span>');}
+ return x.length?s+'<br>'+x.join('<br>'):s;};
+const _v9sell=sellItem;sellItem=function(uid){const it=itemById(uid),nm=it&&it.named;_v9sell(uid);
+ if(nm&&!itemById(uid)){const d=NAMED.find(n=>n.id===nm);if(d&&d.src==='raid'){save.owned[nm]=false;writeSave(true);}}};
+/* 고대 유적: 아티어 드랍 제거 → 파편 */
+function ruinLoot(){
+ ensureV9();save.rec.ruins=(save.rec.ruins||0)+1;
+ const it=genItem(pick(SLOTS)[0],Math.random()<0.3?3:2);addItem(it,true);addFx({kind:'banner',txt:`고대 상자 — ${it.icon} ${it.name}`,col:IR[it.rar].col,life:110});
+ const s=randi(4,8),sh=randi(1,3);save.soul=(save.soul||0)+s;save.shards+=sh;toast(`🔮 검혼석 +${s} · 💠 아티어 파편 +${sh}`);writeSave(true);}
+/* 일반 대장간 (아티어 인식) */
+function showForge(){
+ ensureBaseWeapons();ensureV9();G.back=showHub;
+ const c=save.cls,C=CLASSES[c],w=equippedWeaponOf(c);
+ const list=weaponsOf(c).sort((a,b)=>(b.base?1:0)-(a.base?1:0)||(b.g|0)-(a.g|0)||(b.p||0)-(a.p||0)).map(it=>{const on=w&&w.uid===it.uid,g=GRADES[clamp(it.g|0,0,5)];
+  return`<div class="card ${on?'sel':''}" style="padding:6px"><div style="color:${g.col};font-weight:bold;font-size:13px">${it.icon} ${it.name} +${it.p||0}${it.base?' <span class="muted sm">기본</span>':''}</div><div class="kv sm">${itemLines(it)}</div><button class="btn sm" style="margin-top:4px" ${on?'disabled':''} onclick="forgeEquip('${it.uid}')">${on?'✔ 장착 중 · 강화 대상':'장착하고 강화하기'}</button></div>`;}).join('')||'<div class="muted">이 직업의 무기가 없습니다.</div>';
+ const extra=`<button class="btn" onclick="forgePotion()" ${save.potionMax<6&&save.gold>=potCost()?'':'disabled'}>🧪 물약 주머니 확장 (${save.potionMax}→${Math.min(6,save.potionMax+1)}) — ${potCost()} G</button>
+ <button class="btn" onclick="forgeOre()" ${save.gold>=300?'':'disabled'}>⛏️ 적철광 구매 — 300 G</button>
+ <button class="btn" onclick="showAncient()">⚒️ 고대의 대장간 (아티어 진화 · 재련 · 제작)</button>`;
+ let main;
+ if(!w)main=`<div class="card col" style="flex:1"><div class="kv">장착한 ${C.weapon}이(가) 없습니다. 오른쪽 목록에서 강화할 무기를 고르세요.</div>${extra}</div>`;
+ else if((w.g||0)>=5)main=`<div class="card col" style="flex:1"><div class="muted">${C.icon} ${C.name} · 장착 중인 ${C.weapon}</div><div class="wname" style="color:${GRADES[5].col}">[아티어] ${w.name} +${w.p||0}</div><div class="kv">무기 배율 x${weaponMul(c).toFixed(2)} · 재련 한도 +${GRADES[5].max} · 내구도 ${w.dur==null?100:w.dur}%</div><div class="kv sm">${itemLines(w)}</div><div class="kv" style="color:#ff9a7a">아티어 등급은 일반 대장간에서 다룰 수 없습니다 — 고대의 대장간에서 재련하세요.</div>${extra}</div>`;
+ else{const gr=GRADES[w.g|0],pc=promoCost(w),opt=w.opt?`${OPTS.find(o=>o.k===w.opt.k).name} +${(w.opt.v*100).toFixed(1)}%`:'없음',maxed=(w.p||0)>=gr.max;
+  const promo=(w.g|0)===4?`<button class="btn" onclick="showAncient()" ${maxed?'':'disabled'}>🔱 아티어 진화 — 고대의 대장간${maxed?'':` (전설 +${gr.max} 필요)`}</button>`
+   :`<button class="btn" onclick="forgePromo()" ${maxed&&save.gold>=pc.gold&&save.ore>=pc.ore?'':'disabled'}>⬆️ 승급 → ${GRADES[(w.g|0)+1].n} — ${pc.gold} G + 적철광 ${pc.ore}</button>`;
+  main=`<div class="card" style="flex:1"><div class="muted">${C.icon} ${C.name} · 장착 중인 ${C.weapon}</div><div class="wname" style="color:${gr.col}">[${gr.n}] ${w.name} +${w.p||0}</div>
+  <div class="kv">무기 배율 x${weaponMul(c).toFixed(2)} · 강화 한도 +${gr.max}</div><div class="kv">특수 옵션: ${opt}</div>${w.sp?`<div class="kv" style="color:#ffd77a">★ ${SPDESC[w.sp]||''}</div>`:''}
+  <div class="col" style="margin-top:12px">
+  <button class="btn gold" onclick="forgeUp()" ${!maxed&&save.gold>=upCost(w)?'':'disabled'}>⚒️ 강화 +${(w.p||0)+1} — ${upCost(w)} G${maxed?' (한도 도달)':''}</button>
+  ${promo}
+  <button class="btn" onclick="forgeOpt()" ${save.gold>=150&&save.ore>=1?'':'disabled'}>🎲 특수 옵션 변경 — 150 G + 적철광 1</button>
+  ${extra}</div></div>`;}
+ setUI(`<div class="scr"><div class="hdr"><h2>🔨 대장간</h2><div class="row"><span>💰 ${save.gold.toLocaleString()} G · 🪨 ${save.ore}</span><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="row" style="flex:1;min-height:0;align-items:stretch;gap:14px">${main}
+ <div class="col" style="width:370px;min-height:0"><div class="sec" style="margin-top:0">${C.icon} ${C.name}의 ${C.weapon} (${weaponsOf(c).length})</div><div class="scroll col" style="flex:1">${list}</div>
+ <div class="muted sm" style="line-height:1.6">등급: 일반 → 고급 → 희귀 → 영웅 → 전설 → <span style="color:#ff5a7a">아티어</span>. 전설 +${GRADES[4].max}에서 고대의 대장간으로 진화합니다.</div></div></div></div>`);
+}
+function forgeUp(){const w=equippedWeaponOf(save.cls);if(!w)return;if((w.g||0)>=5){showAncient();return;}w.p=w.p||0;if(w.p>=GRADES[w.g|0].max||save.gold<upCost(w))return;
+ save.gold-=upCost(w);w.p++;sfx('heavy');toast(`⚒️ 강화 성공! ${w.name} +${w.p}`);writeSave(true);keepScroll(showForge);}
+/* 고대의 대장간 */
+function refineCost(it){const p=it.p||0;return{s:2+Math.floor(Math.max(0,p-10)/3),g:1500*Math.max(1,p-9)};}
+function refineChance(it){return Math.max(0.3,1-Math.max(0,(it.p||0)-10)*0.05);}
+function repairCost(it){return Math.round((100-(it.dur==null?100:it.dur))*40);}
+function shardToMark(){ensureV9();if(save.shards<10)return;save.shards-=10;save.marks++;sfx('coin');toast('💠 10 → 🔱 1');writeSave(true);showAncient();}
+function evolveWeapon(){ensureV9();const w=equippedWeaponOf(save.cls),E=EVO_COST;
+ if(!w||(w.g|0)!==4||(w.p||0)<GRADES[4].max||save.shards<E.s||save.marks<E.m||save.gold<E.g)return;
+ if(!confirm(`${w.name}을(를) 아티어로 진화할까요?\n배율이 크게 오르고 강화 단계는 유지되지만, 저주가 하나 붙습니다.`))return;
+ save.shards-=E.s;save.marks-=E.m;save.gold-=E.g;w.g=5;w.rar=5;w.dur=100;w.curse=pick(['drain','cost','fragile']);w.name='진(眞) '+w.name.replace(/^낡은 /,'');
+ sfx('ult');toast(`🔱 ${w.name} — 아티어로 진화! (저주: ${CURSE[w.curse]})`);writeSave(true);showAncient();}
+function refineItem(uid){ensureV9();const it=itemById(uid);if(!it||(it.g||0)<5||(it.p||0)>=GRADES[5].max)return;const c=refineCost(it);if(save.shards<c.s||save.gold<c.g)return;
+ save.shards-=c.s;save.gold-=c.g;
+ if(Math.random()<refineChance(it)){it.p=(it.p||0)+1;sfx('level');toast(`⚒️ 재련 성공! ${it.name} +${it.p}`);}
+ else{it.dur=Math.max(0,(it.dur==null?100:it.dur)-15);sfx('deny');toast(`💥 재련 실패 — 장비는 무사하지만 내구도 ${it.dur}% (능력치 일시 감소)`);}
+ writeSave(true);keepScroll(showAncient);}
+function repairItem(uid){const it=itemById(uid);if(!it)return;const c=repairCost(it);if(!c||save.gold<c)return;save.gold-=c;it.dur=100;sfx('coin');toast(`🔧 ${it.name} 수리 완료`);writeSave(true);keepScroll(showAncient);}
+function craftArtier(id){ensureV9();const a=ART[id],n=NAMED.find(x=>x.id===id);if(!a||!n||save.owned[id]||save.chalBest<a.req||save.marks<a.m||save.gold<a.g)return;
+ if(save.inv.length>=INV_MAX){toast('🎒 가방이 가득 찼습니다');return;}
+ save.marks-=a.m;save.gold-=a.g;save.owned[id]=true;addItem(mkNamed(id));sfx('ult');writeSave(true);keepScroll(showAncient);}
+function showAncient(){
+ ensureBaseWeapons();ensureV9();G.back=showHub;
+ const c=save.cls,w=equippedWeaponOf(c),G4=GRADES[4],G5=GRADES[5],E=EVO_COST;
+ let evo;
+ if(!w)evo='<div class="kv muted">장착한 무기가 없습니다.</div>';
+ else if((w.g||0)>=5)evo=`<div class="kv">${w.icon} <b style="color:${G5.col}">${w.name}</b> — 이미 아티어 등급입니다. 아래에서 재련하세요.</div>`;
+ else{const gr=GRADES[clamp(w.g|0,0,5)],ok=(w.g|0)===4&&(w.p||0)>=G4.max,can=ok&&save.shards>=E.s&&save.marks>=E.m&&save.gold>=E.g;
+  evo=`<div class="kv">${w.icon} <b style="color:${gr.col}">[${gr.n}] ${w.name} +${w.p||0}</b></div><div class="kv sm ${ok?'':'muted'}">조건: 전설 +${G4.max} ${ok?'✔':'(일반 대장간에서 강화 · 승급)'}</div>
+  <div class="kv sm">비용: 💠 ${E.s} · 🔱 ${E.m} · ${E.g.toLocaleString()} G</div><div class="kv sm muted">진화 후: 배율 ×${G5.mul} · 재련 한도 +${G5.max} · 강화 단계 유지 · 저주 1개</div>
+  <button class="btn gold" style="margin-top:6px" onclick="evolveWeapon()" ${can?'':'disabled'}>🔱 아티어로 진화</button>`;}
+ const arts=save.inv.filter(it=>(it.g||0)>=5&&(it.slot!=='weapon'||!it.cls||it.cls===c));
+ const ref=arts.map(it=>{const p=it.p||0,rc=refineCost(it),ch=Math.round(refineChance(it)*100),rp=repairCost(it),mx=p>=G5.max;
+  return`<div class="card" style="padding:8px"><div style="color:${G5.col};font-weight:bold;font-size:13px">${it.icon} ${it.name} +${p}/${G5.max}</div><div class="kv sm">${itemLines(it)}</div>
+  <div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap"><button class="btn sm gold" onclick="refineItem('${it.uid}')" ${!mx&&save.shards>=rc.s&&save.gold>=rc.g?'':'disabled'}>${mx?'재련 한도':`⚒️ 재련 ${ch}% — 💠${rc.s} · ${rc.g.toLocaleString()}G`}</button>
+  <button class="btn sm" onclick="repairItem('${it.uid}')" ${rp>0&&save.gold>=rp?'':'disabled'}>🔧 수리 ${rp}G</button></div></div>`;}).join('')||'<div class="muted">이 직업이 쓸 수 있는 아티어 장비가 없습니다.</div>';
+ const craft=ART_IDS.map(id=>{const n=NAMED.find(x=>x.id===id);if(!n)return'';const a=ART[id],own=!!save.owned[id],lock=save.chalBest<a.req,ok=!own&&!lock&&save.marks>=a.m&&save.gold>=a.g,
+   where=n.cls?CLASSES[n.cls].icon+' '+CLASSES[n.cls].name:(SLOTS.find(s=>s[0]===n.slot)||['','방어구'])[1];
+  return`<div class="card ${own?'lock':''}" style="padding:8px"><div style="color:${G5.col};font-weight:bold;font-size:13px">${n.icon} ${n.name} <span class="muted sm">${where}</span></div><div class="kv sm">${itemLines(n)}</div>
+  <button class="btn sm ${ok?'gold':''}" style="margin-top:4px" onclick="craftArtier('${id}')" ${ok?'':'disabled'}>${own?'보유 중':lock?`🔒 제약 챌린지 ${a.req}점 필요`:`제작 — 🔱${a.m} · ${a.g.toLocaleString()}G`}</button></div>`;}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>⚒️ 고대의 대장간</h2><div class="row"><span>💠 파편 ${save.shards} · 🔱 징표 ${save.marks} · 💰 ${save.gold.toLocaleString()} G</span><button class="btn sm" onclick="shardToMark()" ${save.shards>=10?'':'disabled'}>💠10 → 🔱1</button><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="scroll" style="flex:1">
+ <div class="muted sm">파편 · 징표는 레이드 · 제약 챌린지 · 고대 유적 · 의뢰에서 얻습니다. 재련에 실패해도 장비는 부서지지 않고, 내구도가 깎여 능력치가 일시적으로 줄어듭니다(수리로 복구).</div>
+ <div class="row" style="align-items:stretch;gap:10px;margin-top:8px"><div class="card" style="flex:1"><div class="sec" style="margin-top:0">① 진화 — 전설 → 아티어</div>${evo}</div>
+ <div class="card" style="flex:1"><div class="sec" style="margin-top:0">✦ 시련 세트 · 축복과 저주</div><div class="kv sm">아티어 2부위: 궁극기 충전 +40%<br>아티어 4부위: 피격 시 3초 무적 보호막 (20초마다)<br><span style="color:#ff7070">모든 아티어에는 저주가 붙습니다 — ${Object.values(CURSE).join(' / ')}</span></div><div class="kv sm">현재 착용: <b>${artierInfo().n}부위</b></div></div></div>
+ <div class="sec">② 재련</div><div class="grid3">${ref}</div>
+ <div class="sec">③ 아티어 제작 (정가) — 제약 챌린지 최고 ${save.chalBest}점</div><div class="grid3">${craft}</div></div></div>`);
+}
+/* ---- 7. 레이드: 시련의 파수꾼 ---- */
+function startRaid(){ensureV9();if(save.chapter<5&&save.level<30){toast('🗿 레이드는 스토리 5장 클리어 또는 Lv30부터 도전할 수 있습니다');return;}
+ startRun('endless');G.mode='raid';run.mode='raid';run.theme=4;run.waveActive=true;enemies=[];fx=fx.filter(f=>f.kind!=='banner');
+ const e=spawnBoss(5);e.raid=true;e.dpsDone={};arenaInit();}
+function raidTick(e){if(e.dead)return;e.rt=(e.rt||0)+1;
+ if(e.dps){e.immune=null;const d=e.dps;
+  if(d.got>=d.need){e.dps=null;e.stun=Math.max(e.stun||0,150);addFx({kind:'banner',txt:'전멸기 저지! 파수꾼 그로기',col:'#7dff8a',life:80});sfx('level');}
+  else if(--d.t<=0){e.dps=null;raidWipe(e);}return;}
+ const ph=Math.floor(e.rt/240)%4,im=ph===1?'phys':ph===3?'mag':null;
+ if(im!==(e.immune||null)){e.immune=im;addFx({kind:'banner',txt:im==='phys'?'🛡 물리 면역 — 스킬 · 투사체 · 궁극기로 공격하라':im==='mag'?'🔮 마법 면역 — 평타로 공격하라':'면역 해제',col:im==='phys'?'#9fb4ff':im==='mag'?'#c070ff':'#ffd77a',life:70});}
+ const r=e.hp/e.maxHp;
+ for(const th of[0.75,0.5,0.25])if(r<=th&&!e.dpsDone[th]){e.dpsDone[th]=1;e.dps={t:600,need:Math.round(e.maxHp*0.04),got:0};e.immune=null;
+  addFx({kind:'banner',txt:`⚠ 전멸기 — 10초 안에 ${e.dps.need.toLocaleString()} 피해를 넣어라!`,col:'#ff3050',life:110});sfx('ult');shake(8);break;}}
+function raidWipe(e){if(!P||P.dead)return;
+ addFx({kind:'banner',txt:'💀 전멸기 — 시련의 심판',col:'#ff3050',life:100});G.flash={col:'#ff3050',t:24};shake(20);sfx('boom');addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:20,max:900,col:'#ff3050',life:30});
+ G.v9wipe=true;P.inv=0;P.parryT=0;P.guard=false;P.fortT=0;P.ironT=0;P.sh=0;P.dodgeT=0;P.ul=null;P.sk=null;
+ try{hurtPlayer(P.maxHp*50,e);}finally{G.v9wipe=false;}}
+function raidClear(){ensureV9();const d=save.settings.diff,mk=1+d,sh=4+d*2,sec=Math.round(run.t/60);
+ save.marks+=mk;save.shards+=sh;save.rec.raids=(save.rec.raids||0)+1;rankAdd('raid',{t:sec,cls:save.cls,diff:d});
+ if(d===2||(d>=1&&sec<=300))hallAdd(`🗿 시련의 파수꾼 ${DIFF[d].n} 격파 ${fmtSec(sec)} (${CLASSES[save.cls].name})`);writeSave(true);
+ G.after={t:130,fn:()=>showResult(true,`🗿 시련의 파수꾼 격파! 🔱 징표 +${mk} · 💠 파편 +${sh} · 기록 ${fmtSec(sec)}`)};}
+
+/* ---- 8. 제약 챌린지 ---- */
+const CHAL=[{k:'noHeal',ic:'💔',n:'노 힐',d:'물약 · 흡혈 · 모든 회복 불가',pt:1},{k:'noDodge',ic:'🚷',n:'노 회피',d:'회피 사용 불가 (패링 · 막기는 가능)',pt:2},
+ {k:'oneShot',ic:'☠️',n:'원샷',d:'한 대라도 맞으면 즉사 (막기 제외)',pt:4},{k:'time',ic:'⏱️',n:'타임 어택',d:'150초 안에 4웨이브 돌파',pt:1},{k:'seal',ic:'🔒',n:'스킬 봉인',d:'고유 스킬 · 궁극기 사용 불가',pt:2}];
+const chalPts=sel=>CHAL.filter(c=>sel&&sel[c.k]).reduce((a,c)=>a+c.pt,0);
+const chalOn=k=>G.mode==='chal'&&!!(run&&run.chal&&run.chal.sel[k]);
+function startChal(){const sel=Object.assign({},G.chalSel||{}),pt=chalPts(sel);if(!pt){toast('제약을 하나 이상 고르세요');return;}
+ startRun('endless');G.mode='chal';run.mode='chal';run.chal={sel,pt,max:4,t:70};run.theme=4;run.scale=1.5;run.wave=0;run.waveActive=false;
+ fx=fx.filter(f=>f.kind!=='banner');addFx({kind:'banner',txt:`⛓️ 제약 챌린지 — ${CHAL.filter(c=>sel[c.k]).map(c=>c.n).join(' · ')} (${pt}점)`,col:'#ff9a7a',life:110});arenaInit();}
+function chalTick(){if(!run||!P||P.dead||run.done)return;const c=run.chal,alive=enemies.some(e=>!e.dead);
+ if(c.sel.time&&run.t>150*60){run.done=1;addFx({kind:'banner',txt:'⏱ 시간 초과',col:'#ff5a6a',life:90});G.after={t:80,fn:()=>showResult(false,'⏱ 시간 초과 — 챌린지 실패')};return;}
+ if(run.waveActive){if(!alive){run.waveActive=false;if(run.wave>=c.max){run.done=1;chalClear();}else{c.t=70;addFx({kind:'banner',txt:`${run.wave} / ${c.max} 웨이브 돌파`,col:'#ffd77a',life:60});}}}
+ else if(--c.t<=0){run.wave++;run.waveActive=true;const n=3+run.wave;for(let k=0;k<n;k++)spawnEnemy(pick(POOLS[4]),spawnX(200),{elite:k<run.wave});
+  addFx({kind:'banner',txt:`웨이브 ${run.wave} / ${c.max}`,col:'#ff9a7a',life:60});}}
+function chalClear(){ensureV9();const c=run.chal,sec=Math.round(run.t/60),mk=Math.floor(c.pt/3),sh=c.pt*2,first=c.pt>save.chalBest;
+ save.chalBest=Math.max(save.chalBest,c.pt);save.marks+=mk;save.shards+=sh;rankAdd('chal',{pt:c.pt,t:sec,cls:save.cls});
+ if(c.pt>=8)hallAdd(`⛓️ 제약 챌린지 ${c.pt}점 클리어 ${fmtSec(sec)} (${CLASSES[save.cls].name})`);sfx('level');writeSave(true);
+ G.after={t:100,fn:()=>showResult(true,`⛓️ 챌린지 ${c.pt}점 돌파!${first?' — 최고 기록 갱신 (고대의 대장간 제작 권한 확인)':''} 💠 +${sh}${mk?` · 🔱 +${mk}`:''}`)};}
+
+/* ---- 9. 주간 랭킹 · 명예의 전당 (이 기기 저장) ---- */
+function weekKey(){const d=new Date(),t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())),day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);
+ const y=t.getUTCFullYear(),w=Math.ceil(((t-Date.UTC(y,0,1))/864e5+1)/7);return`${y}-W${String(w).padStart(2,'0')}`;}
+function rankFix(){ensureV9();const wk=weekKey();if(save.rank.wk!==wk)save.rank={wk,raid:[],chal:[]};return save.rank;}
+function rankAdd(k,o){const RK=rankFix();o.date=new Date().toLocaleDateString('ko-KR');RK[k].push(o);RK[k].sort(k==='raid'?(a,b)=>a.t-b.t:(a,b)=>b.pt-a.pt||a.t-b.t);RK[k]=RK[k].slice(0,5);}
+function hallAdd(t2){ensureV9();save.hall.unshift({txt:t2,date:new Date().toLocaleDateString('ko-KR')});save.hall=save.hall.slice(0,20);
+ addFx({kind:'banner',txt:'🏆 명예의 전당 등극!',col:'#ffd77a',life:120});toast('🏆 명예의 전당 등극 — 칭호 「명예의 전당」 · 오라 「✨ 명예의 반짝임」 해금');}
+AURAS.hall={n:'✨ 명예의 반짝임',cond:()=>Array.isArray(save.hall)&&save.hall.length>0,cd:'명예의 전당'};
+TITLES.push({n:'시련의 정복자',cond:()=>(save.rec.raids||0)>=1,cd:'레이드 격파'},{n:'명예의 전당',cond:()=>Array.isArray(save.hall)&&save.hall.length>0,cd:'명예의 전당 등극'});
+const _v9au=updateAura;updateAura=function(){_v9au();
+ if(save.custom.aura==='hall'&&P&&!P.dead&&P.auraT%3===0)parts.push({x:cxOf(P)+rand(-18,18),y:P.y+rand(0,P.h),vx:0,vy:-0.3,life:24,max:24,col:pick(['#ffffff','#ffd77a','#fff6c0']),sz:2,g:0,add:true});};
+
+/* ---- 10. PvP 규칙: 피해 -45% · 약공격 경직만 · 탈출기 ---- */
+const _v9psh=pvpSendHit;pvpSendHit=function(e,dmg,crit,o){_v9psh(e,Math.max(1,Math.round(dmg*0.55)),crit,o);};
+const _v9pth=pvpTakeHit;pvpTakeHit=function(m){if((m.kb||0)<5)m.kb=0;const hp0=P?P.hp:0;_v9pth(m);if(P&&P.hp<hp0)P.esc=Math.min(100,(P.esc||0)+22);};
+const _v9nr=netRecv;netRecv=function(m){if(!m||!m.t)return;const duel=G.mode==='pvp'&&P;
+ switch(m.t){
+  case'esc':if(duel&&!P.dead){const d=Math.sign(cxOf(P)-m.x)||1;P.vx=d*13;P.vy=-5;cancelAttack();P.charging=false;P.pvpStun=Math.max(P.pvpStun||0,20);txtFx('밀려남!','#ff9a9a');}return;
+  case'swap':if(duel&&!P.dead){P.x=clamp(m.x-P.w/2,0,G.roomW-P.w);P.y=m.b-P.h;cancelAttack();P.charging=false;burst(cxOf(P),cyOf(P),'#c8a0ff',10,3,{g:0});txtFx('위치가 바뀌었다!','#c8a0ff');}return;
+  case'conf':if(duel){P.confT=m.d||180;txtFx('혼란! 좌우 반전','#9fe0ff');}return;
+  case'grav':if(duel&&!P.dead){zones.push({kind:'grav',x:m.x,y:FLOOR,r:190,life:50,pull:!!m.pull,col:'#a080ff',t:0,vis:1});const d=m.x-cxOf(P);if(Math.abs(d)<190){P.vx+=m.pull?Math.sign(d)*8:-Math.sign(d)*12;P.vy=-4;}}return;
+  case'rune':if(G.v9arena)G.v9arena.rune={k:m.k,x:W/2-14,y:FLOOR-250,w:28,h:28};return;
+  case'runeTake':if(G.v9arena){G.v9arena.rune=null;G.v9arena.runeT=900;}return;
+  case'trap':if(G.v9arena)trapFire(m.side,m.k);return;}
+ _v9nr(m);};
+
+/* ---- 11. 기믹 무기 ---- */
+function throwSwap(S){const f=P.face;shoot({kind:'orb',x:cxOf(P)-6+f*14,y:cyOf(P)-6,w:12,h:12,vx:f*14,life:40,dmg:P.st.atk*0.5,col:'#c8a0ff',kb:0,onHit:e=>swapWith(e)});sfx('shoot');}
+function swapWith(e){if(!P||P.dead||e.dead)return;const px=cxOf(P),pb=P.y+P.h,ex=cxOf(e),eb=e.y+e.h;
+ if(e.ai==='rival')netSend({t:'swap',x:px,b:pb});
+ else{e.x=clamp(px-e.w/2,0,G.roomW-e.w);e.y=pb-e.h;if(!e.boss){e.st='idle';e.t=0;e.stun=Math.max(e.stun||0,20);}}
+ P.x=clamp(ex-P.w/2,0,G.roomW-P.w);P.y=eb-P.h;P.inv=Math.max(P.inv,20);
+ addFx({kind:'line',x1:px,y1:pb-24,x2:ex,y2:eb-24,col:'#c8a0ff',life:14});burst(px,pb-24,'#c8a0ff',10,3,{g:0});burst(ex,eb-24,'#c8a0ff',10,3,{g:0});sfx('dash');txtFx('위치 교체!','#c8a0ff');}
+function hammerField(S){P.gmHam=!P.gmHam;const x=cxOf(P)+P.face*60;zones.push({kind:'grav',x,y:P.y+P.h,r:190,life:50,pull:P.gmHam,col:'#a080ff',t:0});
+ if(G.mode==='pvp')netSend({t:'grav',x,pull:P.gmHam?1:0});shake(6);sfx('boom');txtFx(P.gmHam?'중력 수렴!':'중력 반발!','#a080ff');}
+function fanBubble(S){shoot({kind:'orb',x:cxOf(P)-11+P.face*16,y:cyOf(P)-11,w:22,h:22,vx:P.face*6,vy:-0.5,life:90,dmg:P.st.atk*0.2,col:'#9fe0ff',kb:0,
+ onHit:e=>{e.confuse=180;if(e.ai==='rival')netSend({t:'conf',d:180});addNum(cxOf(e),e.y-14,'혼란!','#9fe0ff');}});sfx('shoot');}
+function gambleSwing(S){
+ if(Math.random()<0.01){const cx=cxOf(P)+P.face*60,cy=cyOf(P);
+  for(const e of enemies)if(!e.dead&&Math.hypot(cxOf(e)-cx,cyOf(e)-cy)<230)damageEnemy(e,P.st.atk*30,{kb:16,heavy:true,forceCrit:true,gm:true,noStack:true,col:'#ffd34d'});
+  addFx({kind:'ring',x:cx,y:cy,r:20,max:230,col:'#ffd34d',life:24});signatureCut('#ffd34d',true);txtFx('🎰 JACKPOT!!','#ffd34d');sfx('boom');shake(16);}
+ else{for(let i=0;i<6;i++)parts.push({x:cxOf(P)+P.face*rand(20,70),y:cyOf(P)+rand(-20,10),vx:P.face*rand(0.5,2),vy:-rand(0.5,1.5),life:30,max:30,col:pick(['#9fe0ff','#cfefff','#ffffff']),sz:randi(3,5),g:-0.02});if(Math.random()<0.4)sfx('select');}}
+
+/* ---- 12. 전장 변수: 룬 · 발판 함정 · 점프대 · 포탈 (결투장 · 레이드 · 챌린지) ---- */
+const RUNES={rage:{n:'폭주 오라',ic:'🔥',col:'#ff5a3a'},shield:{n:'무적 실드',ic:'🛡️',col:'#9fe0ff'},cool:{n:'쿨타임 초기화',ic:'⏳',col:'#7dff8a'},giant:{n:'거대화',ic:'🗿',col:'#ffd34d'}};
+function arenaInit(){if(G.roomW!==W)return;G.v9arena={pads:[{x:330},{x:W-370}],plates:[{x:200,side:0,cd:0},{x:W-250,side:1,cd:0}],portals:[{x:20},{x:W-60}],spikes:[],rune:null,runeT:600};}
+function trapFire(side,k){const A=G.v9arena;if(!A)return;const x0=side?130:W-340;A.spikes.push({x0,x1:x0+210,k:k||'spike',t:-45,hit:new Set()});sfx('deny');}
+function applyRune(k){const RU=RUNES[k],rt=P.runeT||(P.runeT={});
+ if(k==='rage')rt.rage=480;else if(k==='shield')P.inv=Math.max(P.inv,240);
+ else if(k==='cool'){P.skillCd=0;P.dodgeCd=0;P.parryCd=0;P.sta=P.staMax;P.lockT=0;P.ultG=Math.min(100,P.ultG+30);}
+ else if(k==='giant')rt.giant=600;
+ addFx({kind:'banner',txt:`${RU.ic} ${RU.n}!`,col:RU.col,life:70});addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:80,col:RU.col,life:18});sfx('level');}
+function arenaTick(){const A=G.v9arena;if(!A||!P)return;
+ for(const s of A.spikes){s.t++;if(s.t<0||s.t>=26)continue;
+  if(!P.dead&&!s.hitP&&P.x+P.w>s.x0&&P.x<s.x1&&(s.k==='bolt'||P.y+P.h>FLOOR-50)){s.hitP=1;hurtPlayer(20+P.maxHp*0.12,null);}
+  for(const e of enemies){if(e.dead||e.ai==='rival'||s.hit.has(e))continue;
+   if(cxOf(e)>s.x0&&cxOf(e)<s.x1&&(s.k==='bolt'||e.y+e.h>FLOOR-50)){s.hit.add(e);damageEnemy(e,Math.max(P.st.atk*3,e.boss?e.maxHp*0.01:0),{kb:6,noStack:true,gm:true,noUlt:true,col:'#ff6050'});}}}
+ A.spikes=A.spikes.filter(s=>s.t<30);
+ if(P.dead)return;
+ const onFloor=P.ground&&P.y+P.h>=FLOOR-1;
+ for(const p of A.pads)if(onFloor&&P.x+P.w>p.x&&P.x<p.x+40){P.vy=-17;P.ground=false;P.jumps=1;P.airDash=false;sfx('dash');burst(p.x+20,FLOOR-4,'#7dff8a',10,4,{up:3});}
+ if(hit('up'))for(let i=0;i<2;i++){const q=A.portals[i];if(P.x+P.w>q.x&&P.x<q.x+40&&P.y+P.h>FLOOR-90){const o=A.portals[1-i];
+  burst(cxOf(P),cyOf(P),'#b07bff',12,3,{g:0});P.x=o.x+20-P.w/2;P.y=FLOOR-P.h;P.vx=0;P.inv=Math.max(P.inv,20);burst(cxOf(P),cyOf(P),'#b07bff',12,3,{g:0});sfx('dash');break;}}
+ for(const pl of A.plates){if(pl.cd>0){pl.cd--;continue;}
+  if(onFloor&&P.x+P.w>pl.x&&P.x<pl.x+50){pl.cd=360;const k=Math.random()<0.5?'spike':'bolt';trapFire(pl.side,k);if(G.mode==='pvp')netSend({t:'trap',side:pl.side,k});}}
+ const canSpawn=G.mode!=='pvp'||NET.host;
+ if(!A.rune&&canSpawn&&--A.runeT<=0){const k=pick(Object.keys(RUNES));A.rune={k,x:W/2-14,y:FLOOR-250,w:28,h:28};A.runeT=900;
+  if(G.mode==='pvp')netSend({t:'rune',k});addFx({kind:'banner',txt:`${RUNES[k].ic} 룬 출현 — 중앙 발판`,col:RUNES[k].col,life:60});}
+ if(A.rune&&ov(P,A.rune)){applyRune(A.rune.k);A.rune=null;A.runeT=900;if(G.mode==='pvp')netSend({t:'runeTake'});}}
+function drawArena(){const A=G.v9arena;if(!A)return;ctx.save();
+ for(const p of A.pads){ctx.fillStyle='#2a5a3a';ctx.fillRect(p.x,FLOOR-6,40,6);ctx.fillStyle=`rgba(125,255,138,${0.5+0.3*Math.sin(G.t*0.2)})`;
+  for(let i=0;i<2;i++){const y=FLOOR-14-i*10-(G.t%20)/2;ctx.beginPath();ctx.moveTo(p.x+8,y+6);ctx.lineTo(p.x+20,y);ctx.lineTo(p.x+32,y+6);ctx.lineTo(p.x+28,y+8);ctx.lineTo(p.x+20,y+4);ctx.lineTo(p.x+12,y+8);ctx.fill();}}
+ for(const pl of A.plates){ctx.fillStyle=pl.cd>0?'#3a3a48':'#6a6a7a';ctx.fillRect(pl.x,FLOOR-4,50,4);ctx.fillStyle=pl.cd>0?'#5a2a2a':'#ff5050';ctx.fillRect(pl.x+20,FLOOR-6,10,3);}
+ for(const q of A.portals){const cx=q.x+20,cy=FLOOR-36;ctx.strokeStyle=`rgba(176,123,255,${0.6+0.3*Math.sin(G.t*0.15)})`;ctx.lineWidth=3;
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(cx,cy,14-i*4,32-i*8,0,G.t*0.05+i,G.t*0.05+i+5);ctx.stroke();}}
+ for(const s of A.spikes){
+  if(s.t<0){ctx.fillStyle=`rgba(255,60,60,${0.2+0.2*Math.sin(G.t*0.6)})`;ctx.fillRect(s.x0,s.k==='bolt'?0:FLOOR-50,s.x1-s.x0,s.k==='bolt'?FLOOR:50);}
+  else if(s.k==='spike'){ctx.fillStyle='#d8d8e0';const h=Math.min(46,s.t*8);for(let x=s.x0;x<s.x1;x+=14){ctx.beginPath();ctx.moveTo(x,FLOOR);ctx.lineTo(x+7,FLOOR-h);ctx.lineTo(x+14,FLOOR);ctx.fill();}}
+  else{ctx.strokeStyle='#ffe95c';ctx.lineWidth=3;ctx.globalCompositeOperation='lighter';for(let x=s.x0+20;x<s.x1;x+=50)jag(x,0,x+rand(-10,10),FLOOR);ctx.globalCompositeOperation='source-over';}}
+ if(A.rune){const r=A.rune,RU=RUNES[r.k],cx=r.x+14,cy=r.y+14+Math.sin(G.t*0.1)*4;
+  ctx.globalCompositeOperation='lighter';ctx.fillStyle=hexA(RU.col,0.35);ctx.beginPath();ctx.arc(cx,cy,22,0,7);ctx.fill();ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle=RU.col;ctx.beginPath();ctx.moveTo(cx,cy-16);ctx.lineTo(cx+12,cy);ctx.lineTo(cx,cy+16);ctx.lineTo(cx-12,cy);ctx.fill();txt(RU.ic,cx,cy+5,'#fff',13,'center',false);}
+ ctx.restore();}
+function drawZones(){for(const z of zones){ctx.save();const fade=Math.max(0,Math.min(1,z.life/30));ctx.globalAlpha=fade;
+ if(z.kind==='field'){ctx.globalCompositeOperation='lighter';ctx.fillStyle=hexA(z.col,0.18);ctx.beginPath();ctx.ellipse(z.x,z.y-4,z.r,16,0,0,7);ctx.fill();ctx.strokeStyle=z.col;ctx.lineWidth=2;ctx.stroke();
+  ctx.globalCompositeOperation='source-over';for(let i=0;i<6;i++){const a=G.t*0.03+i*1.047,x=z.x+Math.cos(a)*z.r*0.8,y=z.y-6+Math.sin(a)*12;ctx.fillStyle='#f3e2a0';ctx.fillRect(x-4,y-10,8,12);ctx.fillStyle='#c0202a';ctx.fillRect(x-1,y-8,2,8);}}
+ else if(z.kind==='grav'){ctx.globalCompositeOperation='lighter';ctx.strokeStyle=z.col;ctx.lineWidth=2;
+  for(let i=0;i<4;i++){const k=((z.t||0)*0.06+i/4)%1,r=z.pull?z.r*(1-k):z.r*k;ctx.globalAlpha=fade*(1-Math.abs(k-0.5));ctx.beginPath();ctx.ellipse(z.x,z.y-30,Math.max(1,r),Math.max(1,r*0.4),0,0,7);ctx.stroke();}}
+ ctx.restore();}}
+
+/* ---- 13. 흐름 연결 ---- */
+const _v9sr=startRun;startRun=function(m,o){G.v9arena=null;zones=[];G.v9wipe=false;_v9sr(m,o);};
+const _v9er=enterRoom;enterRoom=function(id,from){zones=[];_v9er(id,from);};
+const _v9sdu=setupDuel;setupDuel=function(){_v9sdu();arenaInit();};
+function v9WorldTick(){
+ for(const z of zones){z.t=(z.t||0)+1;z.life--;if(z.vis)continue;
+  if(z.kind==='field'&&z.t%30===0)for(const e of enemies)if(!e.dead&&Math.abs(cxOf(e)-z.x)<z.r&&Math.abs(e.y+e.h-z.y)<70){e.slowT=Math.max(e.slowT||0,35);damageEnemy(e,z.dmg,{kb:0,noStack:true,gm:true,noUlt:true,col:z.col});}
+  if(z.kind==='grav')for(const e of enemies){if(e.dead||e.boss||e.ai==='dummy'||e.ai==='rival')continue;const dx=z.x-cxOf(e);
+   if(Math.abs(dx)<z.r){if(z.pull)e.vx+=Math.sign(dx)*1.1;else if(z.t<6)e.vx-=Math.sign(dx)*3;}}}
+ zones=zones.filter(z=>z.life>0);
+ arenaTick();}
+const _v9uw=updateWorld;updateWorld=function(){_v9uw();if(run&&P)v9WorldTick();};
+const _v9cc=checkClear;checkClear=function(){
+ if(G.mode==='raid'){if(run&&P&&!P.dead&&!run.done&&!enemies.some(e=>e.boss&&!e.dead)){run.done=1;raidClear();}return;}
+ if(G.mode==='chal'){chalTick();return;}
+ _v9cc();};
+const _v9da=drawAllies;drawAllies=function(){drawZones();drawArena();drawUWorld();_v9da();};
+const _v9den=drawEnemy;drawEnemy=function(e){_v9den(e);if(e.hide||e.dead||e.ai==='rival')return;const cx=cxOf(e),top=e.y-(e.boss?34:30);
+ if(e.seal>0){ctx.fillStyle='#f3e2a0';ctx.fillRect(cx-5,top-12,10,13);ctx.fillStyle='#c0202a';ctx.fillRect(cx-1,top-10,2,9);}
+ if(e.slowT>0){ctx.save();ctx.globalAlpha=0.35;ctx.fillStyle='#9fe8ff';ctx.fillRect(e.x,e.y+e.h-6,e.w,6);ctx.restore();}
+ if(e.confuse>0)txt('?',cx+12,top-2,'#9fe0ff',14,'center');
+ if(e.raid&&e.immune){ctx.save();ctx.strokeStyle=e.immune==='phys'?'#9fb4ff':'#c070ff';ctx.lineWidth=3;ctx.globalAlpha=0.6+0.3*Math.sin(G.t*0.2);ctx.beginPath();ctx.ellipse(cx,cyOf(e),e.w,e.h*0.65,0,0,7);ctx.stroke();ctx.restore();}};
+const _v9dpl=drawPlayer;drawPlayer=function(){
+ if(P&&P.runeT&&P.runeT.giant>0){const ax=cxOf(P),ay=P.y+P.h;ctx.save();ctx.translate(ax,ay);ctx.scale(1.35,1.35);ctx.translate(-ax,-ay);_v9dpl();ctx.restore();}
+ else _v9dpl();};
+const _v9held=held;held=function(a){if(P&&P.confT>0&&G.scene==='play'){if(a==='left')a='right';else if(a==='right')a='left';}return _v9held(a);};
+function retryRun(){const L=LASTRUN;if(!L)return;goHub();
+ if(L.m==='dungeon')startDungeon(L.dun);else if(L.m==='campaign')startChapter(L.ch);else if(L.m==='raid')startRaid();else if(L.m==='chal')startChal();else startRun(L.m);}
+/* ---- 14. HUD ---- */
+function v9Label(){
+ if(G.mode==='raid'){const b=enemies.find(e=>e.raid&&!e.dead);let s=`🗿 레이드 · ${fmtSec(Math.floor(run.t/60))}`;
+  if(b){if(b.dps)s+=` · ⚠ 전멸기 ${Math.round(b.dps.got).toLocaleString()}/${b.dps.need.toLocaleString()} (${Math.ceil(b.dps.t/60)}초)`;else if(b.immune)s+=b.immune==='phys'?' · 🛡 물리 면역':' · 🔮 마법 면역';}
+  return s;}
+ const c=run.chal;if(!c)return'⛓️ 제약 챌린지';
+ let s=`⛓️ 제약 챌린지 ${c.pt}점 · 웨이브 ${run.wave}/${c.max}`;if(c.sel.time)s+=` · ⏱ ${Math.max(0,150-Math.floor(run.t/60))}초`;return s;}
+const _v9gh=gimmickHud;gimmickHud=function(S){let s=_v9gh(S);const c=save.cls;
+ if(c==='swordsman'&&save.style.swordsman==='iaido')s+=` · 집중 ${Math.floor(P.focus||0)}/100`;
+ if(c==='mage')s+=` · 마력 ${Math.floor(P.mana||0)}`;
+ if(c==='brawler')s+=` · 투기 ${Math.floor(P.fury||0)}`;
+ if(G.mode==='pvp')s+=` · 탈출 ${Math.floor(P.esc||0)}${(P.esc||0)>=50?' (피격 중 회피 키)':''}`;
+ return s;};
+const _v9hud=drawHUD;drawHUD=function(){_v9hud();if(!P||!run)return;const b=[],rt=P.runeT||{};
+ if(rt.rage>0)b.push(`🔥 폭주 ${Math.ceil(rt.rage/60)}`);if(rt.giant>0)b.push(`🗿 거대화 ${Math.ceil(rt.giant/60)}`);
+ if(P.confT>0)b.push(`😵 혼란 ${Math.ceil(P.confT/60)}`);if(P.ench>0)b.push(`✨ ${ENCH_N[P.enchK]||''} 인챈트 ${Math.ceil(P.ench/60)}`);
+ if(P.weaveT>0)b.push('🥊 위빙');if(P.v9stuck>0)b.push('⛔ 빈틈');
+ if(G.mode!=='pvp'){const A=artierInfo();if(A.n>=4)b.push(P.setCd>0?`✦ 시련 보호막 ${Math.ceil(P.setCd/60)}`:'✦ 시련 보호막 준비');}
+ if(run.chal)b.push('⛓ '+CHAL.filter(c=>run.chal.sel[c.k]).map(c=>c.n).join('·'));
+ if(b.length)txt(b.join('   '),18,186,'#ffd77a',11);};
+
+/* ---- 15. 상점: 기믹 무기 ---- */
+const _v9shop=showShop;showShop=function(){_v9shop();const sc=document.querySelector('#ui .scroll');if(!sc)return;
+ const g=NAMED.filter(n=>n.gim).map(n=>`<div class="card" style="padding:8px"><div style="font-weight:bold;font-size:13px;color:${IR[n.rar].col}">${n.icon} ${n.name}</div><div class="kv sm">${itemLines(n)}</div>${save.owned[n.id]?'<div class="muted sm">보유 중</div>':`<button class="btn sm gold" style="margin-top:4px" onclick="buySpecial('${n.id}')" ${save.gold>=n.cost?'':'disabled'}>구매 ${n.cost}G</button>`}</div>`).join('');
+ sc.insertAdjacentHTML('beforeend',`<div class="sec">🎲 기믹 무기 — 모든 직업 장착 가능 · 파티 · 결투용 (강화 불가)</div><div class="grid3">${g}</div>`);};
+
+/* ---- 16. 화면: 제약 챌린지 · 랭킹 ---- */
+function chalTog(k){G.chalSel=G.chalSel||{};G.chalSel[k]=!G.chalSel[k];sfx('select');showChallenge();}
+function showChallenge(){ensureV9();G.back=showHub;const sel=G.chalSel||(G.chalSel={}),pt=chalPts(sel);
+ const cards=CHAL.map(c=>`<div class="card ${sel[c.k]?'sel':''}" style="cursor:pointer" onclick="chalTog('${c.k}')"><div class="ct">${sel[c.k]?'☑':'☐'} ${c.ic} ${c.n} <span class="muted">+${c.pt}점</span></div><div class="kv">${c.d}</div></div>`).join('');
+ const unl=ART_IDS.filter(id=>ART[id].req>0).map(id=>{const n=NAMED.find(x=>x.id===id);return n?`<div class="kv sm">${n.icon} ${n.name} — ${ART[id].req}점 ${save.chalBest>=ART[id].req?'<span style="color:#6dff8a">✔ 해금</span>':''}</div>`:'';}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>⛓️ 제약 챌린지</h2><div class="row"><span>최고 기록 <b style="color:#ffd77a">${save.chalBest}점</b></span><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="row" style="flex:1;min-height:0;align-items:stretch;gap:12px">
+ <div class="col scroll" style="flex:1"><div class="muted">정예가 섞인 4웨이브를 제약을 건 채 돌파하세요. 점수 합계가 높을수록 보상이 커지고, 점수에 따라 아티어 제작 권한이 열립니다.</div>
+ <div class="grid3">${cards}</div><button class="btn big gold" onclick="startChal()" ${pt?'':'disabled'}>⛓️ 도전 시작 — 합계 ${pt}점</button></div>
+ <div class="card col scroll" style="width:300px"><div class="sec" style="margin-top:0">보상</div><div class="kv sm">💠 파편 = 점수 × 2<br>🔱 징표 = 점수 ÷ 3 (내림)<br>8점 이상: 🏆 명예의 전당</div>
+ <div class="sec">아티어 제작 권한</div>${unl}</div></div></div>`);}
+function showRank(){ensureV9();const RK=rankFix();G.back=showHub;
+ const cn=k=>CLASSES[k]?CLASSES[k].icon+' '+CLASSES[k].name:'';
+ const raid=RK.raid.map((x,i)=>`<tr><td>${i+1}</td><td><b>${fmtSec(x.t)}</b></td><td>${cn(x.cls)}</td><td>${DIFF[x.diff]?DIFF[x.diff].n:''}</td><td class="muted">${x.date}</td></tr>`).join('')||'<tr><td class="muted">이번 주 기록 없음</td></tr>';
+ const chal=RK.chal.map((x,i)=>`<tr><td>${i+1}</td><td><b>${x.pt}점</b></td><td>${fmtSec(x.t)}</td><td>${cn(x.cls)}</td><td class="muted">${x.date}</td></tr>`).join('')||'<tr><td class="muted">이번 주 기록 없음</td></tr>';
+ const hall=save.hall.map(h=>`<div class="kv">🏆 ${h.txt} <span class="muted sm">${h.date}</span></div>`).join('')||'<div class="muted">아직 등극한 기록이 없습니다.</div>';
+ setUI(`<div class="scr"><div class="hdr"><h2>🏆 주간 랭킹 · 명예의 전당</h2><div class="row"><span class="muted">${RK.wk} 주차</span><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="row scroll" style="flex:1;align-items:flex-start;gap:12px">
+ <div class="card" style="flex:1"><div class="sec" style="margin-top:0">🗿 레이드 타임어택</div><table class="rec">${raid}</table><div class="sec">⛓️ 제약 챌린지</div><table class="rec">${chal}</table>
+ <div class="muted sm" style="margin-top:6px">이 기기에 저장되는 개인 주간 기록입니다 · 매주 월요일 초기화</div></div>
+ <div class="card" style="width:360px"><div class="sec" style="margin-top:0">🏛️ 명예의 전당</div>${hall}
+ <div class="muted sm" style="margin-top:8px">등극 조건: 레이드 하드 격파, 또는 노멀 이상 5분 이내 격파 · 챌린지 8점 이상 클리어<br>보상: 칭호 「명예의 전당」 · 오라 「✨ 명예의 반짝임」 (외형 설정)</div></div></div></div>`);}
+
+/* ---- 17. 거점 ---- */
+function showHub(){
+ ensureBaseWeapons();ensureV9();
+ G.scene='hub';G.back=null;G.modal=null;setModal('');$('train').style.display='none';$('touch').style.display='none';
+ const C=CLASSES[save.cls],S=curStyle(),st=calcStats(),K=a=>keyName(bind(a)),wi=equippedWeaponOf(save.cls);
+ const qn=QUESTS.filter(questReady).length,tn=TUTO.filter(q=>!save.tuto[q.id]&&q.p()).length,nx=TUTO.find(q=>!save.tuto[q.id]);
+ const tp=save.cls!=='novice'&&save.style[save.cls]!=='basic'?Math.max(0,treeAvail(save.cls,save.style[save.cls])):0;
+ const B=(fn,label,extra,cls)=>`<button class="btn ${cls||''}" onclick="${fn}">${label}${extra||''}</button>`,bd=n=>n?`<span class="badge">${n}</span>`:'';
+ const prog=!save.jobDone?`<div style="color:#ffd77a">${save.level>=5?'🎖️ 전직할 수 있습니다!':`🎖️ 전직까지 Lv.${save.level} / 5`}</div>`:canStyle()?'<div style="color:#ffd77a">🏯 유파를 고를 수 있습니다!</div>':save.level<15?`<div class="muted">🏯 유파 개방까지 Lv.${save.level} / 15</div>`:'';
+ const wg=wi?GRADES[clamp(wi.g|0,0,5)]:null,raidOk=save.chapter>=5||save.level>=30,A=artierInfo();
+ setUI(`<div class="hub-left" style="width:420px;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;bottom:auto"><div class="hub-title" style="grid-column:1/-1">⛩️ 검의 사당</div>
+ ${canJob()?'<button class="btn gold" style="grid-column:1/-1" onclick="showJobChange()">🎖️ 전직 가능! 직업 선택</button>':''}
+ ${B("startRun('expedition')",'⚔️ 원정 출발','','gold')}${B('showDungeon()','🕳️ 수련 던전')}
+ ${B('showCampaign()','📜 스토리',` <span class="muted">${save.chapter}/5</span>`)}${B("startRun('endless')",'👹 서바이벌',` <span class="muted">${save.rec.bestWave}</span>`)}
+ ${B('startRaid()','🗿 레이드',raidOk?'':' 🔒','red')}${B('showChallenge()','⛓️ 제약 챌린지',` <span class="muted">${save.chalBest}점</span>`)}
+ ${B("startRun('training')",'🎯 훈련장')}${B('showTuto()','📘 수련 목표',bd(tn))}
+ ${B('showEquip()','🎒 장비')}${B('showForge()','🔨 대장간')}
+ ${B('showAncient()','⚒️ 고대의 대장간')}${B('showShop()','🏪 상점')}
+ ${B('showGacha()','🔮 검혼 제단')}${B('showChar()','🧍 캐릭터 · 유파',bd(save.sp)+(canStyle()?'<span class="badge">유파</span>':''))}
+ ${B('showTree()','🌳 스킬 트리',bd(tp))}${B('showQuests()','📜 의뢰 · 업적',bd(qn))}
+ ${B('showCustom()','🎨 외형 설정')}${B('showOnline()','🌐 온라인 결투')}
+ ${B('showRank()','🏆 랭킹 · 명예')}${B("showCodex('enemy')",'📖 도감')}
+ ${B('showRecords()','📊 전투 기록')}${B('showSettings(showHub)','⚙️ 설정')}
+ <button class="btn" style="grid-column:1/-1" onclick="writeSave(true);showTitle()">🏠 저장 후 타이틀로</button></div>
+ <div class="hub-right card">${save.custom.title?`<div style="color:#ffd77a;font-weight:bold">〔${save.custom.title}〕</div>`:''}
+ <b style="font-size:15px">${C.icon} ${C.name}</b> — <span style="color:${S.col}">${S.icon} ${S.name}</span><br>
+ Lv.${save.level} <span class="muted">(EXP ${save.xp}/${xpNeed(save.level)}) · 난이도 ${DIFF[save.settings.diff].n}</span>${prog}
+ ${nx?`<div style="color:#9fe0ff">📘 다음 목표: ${nx.n}${nx.p()?' ✔ 보상 대기':''}</div>`:''}
+ HP ${st.maxHp} · 공격력 ${Math.round(st.atk)} · 치명 ${Math.round(st.crit*100)}%<br>
+ 무기 ${wi?`<span style="color:${wg.col}">${wi.icon} [${wg.n}] ${wi.name} +${wi.p||0}</span>`:'<span class="muted">없음</span>'}<br>
+ 적재 ${Math.round(st.load)} / ${st.cap}${st.over>0?' <span style="color:#ff7070">⚖️ 과적</span>':''}${A.n?` · <span style="color:#ff5a7a">✦ 시련 세트 ${A.n}부위</span>`:''}<br>
+ 기믹 <span class="muted">${save.cls==='swordsman'?'이연격 · 대회전베기':GM_DESC[save.cls]||''}</span><br>
+ 고유 스킬 [${K('skill')}] ${C.skill.name} · 궁극기 [${K('ult')}] ${S.ult.name}<br>
+ 💰 ${save.gold.toLocaleString()} G · 🪨 ${save.ore} · 🔮 ${save.soul||0} · 🧪 ${save.potionMax}<br>💠 아티어 파편 ${save.shards} · 🔱 아티어 징표 ${save.marks}</div>`);
  if(tn&&save.tutoNote!==tn){save.tutoNote=tn;toast(`📘 수련 목표 ${tn}개 달성 — 보상을 받으세요!`);}
 }
 
