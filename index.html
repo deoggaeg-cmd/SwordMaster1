@@ -1459,13 +1459,13 @@ function applyCrt(){$('crt').style.display=save.settings.crt?'block':'none';}
 
 /* ===================== 33. 타이틀 · 메인 메뉴 ===================== */
 function showTitle(){G.scene='title';G.back=null;G.modal=null;setModal('');$('touch').style.display='none';$('train').style.display='none';
- setUI(`<div class="scr center" style="background:transparent;justify-content:flex-end;padding-bottom:80px;cursor:pointer" onclick="showMenu()"><div style="font-size:18px;color:#ffd77a;animation:blink 1.2s infinite">— PRESS ANY KEY —</div><div class="muted" style="margin-top:8px">클릭하거나 아무 키나 누르세요</div></div><div class="ver">v9.0</div>`);}
+ setUI(`<div class="scr center" style="background:transparent;justify-content:flex-end;padding-bottom:80px;cursor:pointer" onclick="showMenu()"><div style="font-size:18px;color:#ffd77a;animation:blink 1.2s infinite">— PRESS ANY KEY —</div><div class="muted" style="margin-top:8px">클릭하거나 아무 키나 누르세요</div></div><div class="ver">v10.0</div>`);}
 function showMenu(){initAudio();G.scene='menu';G.back=null;
  setUI(`<div class="menu-main"><div class="logo-s">劍聖 검성<span>SWORD MASTER</span></div>
  <button class="btn big gold" onclick="newGame()">⚔️ 새로운 여정</button>
  <button class="btn big" onclick="showHub()" ${save.hasSave?'':'disabled'}>📜 이어하기 ${save.hasSave?`<span class="muted">Lv.${save.level} · 캠페인 ${save.chapter}/5장</span>`:''}</button>
  <button class="btn big" onclick="showSettings(showMenu)">⚙️ 환경 설정</button>
- <button class="btn big" onclick="showControls(showMenu)">🎮 조작법</button></div><div class="ver">v9.0 · 자동 저장 지원</div>`);}
+ <button class="btn big" onclick="showControls(showMenu)">🎮 조작법</button></div><div class="ver">v10.0 · 자동 저장 지원</div>`);}
 function newGame(){if(save.hasSave&&!confirm('기존 저장 데이터를 덮어쓰고 새로 시작할까요?'))return;const st=save.settings;save=defaultSave();save.settings=st;writeSave(true);setUI('');G.scene='hub';showDialog(PROLOGUE,showHub,'pro');}
 
 /* ===================== 34. 대화창 ===================== */
@@ -4576,6 +4576,1432 @@ function showHub(){
  💰 ${save.gold.toLocaleString()} G · 🪨 ${save.ore} · 🔮 ${save.soul||0} · 🧪 ${save.potionMax}<br>💠 아티어 파편 ${save.shards} · 🔱 아티어 징표 ${save.marks}</div>`);
  if(tn&&save.tutoNote!==tn){save.tutoNote=tn;toast(`📘 수련 목표 ${tn}개 달성 — 보상을 받으세요!`);}
 }
+
+/* ===================== 57~65. v10 완전판 — 생성기 자동 삽입 (보스 밸런스 · 강호편 · 세계관 · 적 · 보스 · 동료 · 탐험) ===================== */
+
+/* @@V10-BEGIN@@ */
+
+/* ── ① 보스 밸런스 (v10) ── */
+/* ===================== 57. v10: 보스 밸런스 — 위엄은 연출로, 쾌적함은 읽을 수 있는 전투로 ===================== */
+const BT={
+ hpMul:1.3,               /* 고정 체력 배율 (v9의 ×10 대체) */
+ ttk:[[35,100],[40,110],[45,125],[50,140],[55,160],[150,300]], /* 보스별 [최소,최대] 처치 시간(초) · 마지막=레이드 */
+ diffT:[0.75,1,1.3],      /* 이지/노멀/하드 처치 시간 배율 */
+ modeT:{endless:0.6,training:0.5},
+ hitsPerSec:1.4,          /* 실전 평균 적중 수(회피·이동 포함) — DPS 추정용 */
+ hitCap:[0.2,0.25,0.35],  /* 보스전 한 방 최대 피해 (최대 HP 대비) */
+ cdMul:1.35,punish:30,    /* 패턴 간격 배율 · 큰 기술 뒤 추가 빈틈(프레임) */
+ bulletScale:1.2,meleeScale:1.15, /* v9의 탄 ×1.5 / 근접 ×1.35 완화 */
+ brkDur:240,brkDmg:1.5,brkParry:22,brkGrow:0.35, /* 브레이크: 지속·받는 피해·패링 충전·회차별 요구량 증가 */
+ raidCheck:0.55           /* 레이드 전멸기 목표 = 내 예상 DPS × 10초 × 이 값 */
+};
+const PUNISH=new Set(['combo','dash','slam','teleport','laser','nova','mortar']);
+function v10EstDps(){if(!P)return 50;const s=calcStats(),cr=1+Math.min(0.9,s.crit)*Math.max(0,s.critDmg-1);return Math.max(5,s.atk*cr*clamp(s.aspd,0.6,1.8)*BT.hitsPerSec);}
+
+/* 1) 체력: 고정값 정상화 + 내 화력 기준 처치 시간 범위로 고정 */
+const _v10sb=spawnBoss;spawnBoss=function(idx){const e=_v10sb(idx);if(!e)return e;
+ const eff=v10EstDps()*(1-(e.def||0)),tt=BT.ttk[Math.min(idx,BT.ttk.length-1)],mf=(BT.modeT[G.mode]||1)*(BT.diffT[save.settings.diff]||1);
+ let hp=idx<5?e.hp/BOSS_HP_MUL*BT.hpMul:e.hp;hp=clamp(hp,eff*tt[0]*mf,eff*tt[1]*mf);
+ e.hp=e.maxHp=Math.round(hp);Object.assign(e,{brk:0,brkMax:100,brkN:0,brkT:0,brkHit:0,v10dps:eff});return e;};
+
+/* 2) 브레이크(그로기) */
+function bossBreak(e){e.brk=0;e.brkN++;e.brkMax=100*(1+BT.brkGrow*e.brkN);e.brkT=BT.brkDur;e.stun=Math.max(e.stun||0,BT.brkDur);
+ if(e.st!=='idle')bossDone(e,1);e.hide=false;e.tele=0;e.vx=0;
+ addFx({kind:'banner',txt:'💥 BREAK — 지금이 기회다!',col:'#ffe07a',life:80});addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:10,max:180,col:'#ffe07a',life:20});
+ sparks(cxOf(e),cyOf(e),'#ffe07a',20);G.slow=Math.max(G.slow,20);G.hitstop=Math.max(G.hitstop,6);shake(12);sfx('boom');}
+const _v10de=damageEnemy;damageEnemy=function(e,base,o){o=o||{};
+ const b=e&&e.boss&&e.brkMax!=null&&!e.dead;if(b&&e.brkT>0)base*=BT.brkDmg;
+ const r=_v10de(e,base,o);
+ if(b&&r>0&&!(e.brkT>0)&&e.st!=='phase'){e.brk+=((o.heavy?3:1.2)+(o.melee?0.6:0))*(o.gm||o.noUlt?0.4:1);e.brkHit=G.t;}
+ return r;};
+const _v10ps=parrySuccess;parrySuccess=function(src){const b=src&&src.boss&&src.brkMax!=null&&!src.dead&&!(src.brkT>0);_v10ps(src);if(b){src.brk+=BT.brkParry;src.brkHit=G.t;}};
+
+/* 3) 페이즈 전환 = 숨 고르기 (탄막 소거 · 보호막/기력 회복) */
+function bossBreather(e){projs=projs.filter(p=>p.friend);if(!P||P.dead)return;
+ P.sh=P.shMax||P.sh;P.sta=P.staMax;P.lockT=0;let s='보호막 · 기력 회복';if(P.potions<1&&G.mode!=='chal'){P.potions=1;s+=' · 물약 +1';}
+ addFx({kind:'text',x:cxOf(P),y:P.y-50,txt:'숨 고르기 — '+s,col:'#9fe8ff',life:70});}
+const _v10ub=updateBoss;updateBoss=function(e){
+ if(e.brkMax!=null){
+  if(e.brkT>0){e.brkT--;if(e.st==='phase')e.brkT=0;}
+  else if(e.brk>=e.brkMax&&e.st!=='phase'&&!e.pendingPhase)bossBreak(e);
+  else if(e.brk>0&&G.t-e.brkHit>180)e.brk=Math.max(0,e.brk-0.25);}
+ _v10ub(e);
+ for(const p of projs)if(p.v9s&&!p.v10s){p.v10s=1;const k=BT.bulletScale/1.5,cx=p.x+p.w/2,cy=p.y+p.h/2;p.w*=k;p.h*=k;p.x=cx-p.w/2;p.y=cy-p.h/2;}
+ if(e.st==='phase'&&e.t===1&&e.v10ph!==e.phase){e.v10ph=e.phase;bossBreather(e);}
+};
+
+/* 4) 패턴 사이 여유 + 큰 기술 뒤 "빈틈!" */
+const _v10bd=bossDone;bossDone=function(e,sp){const st=e.st;_v10bd(e,sp);if(!e.boss)return;e.cd=Math.round(e.cd*BT.cdMul);
+ if(!(e.brkT>0)&&PUNISH.has(st)){e.cd+=BT.punish;addFx({kind:'text',x:cxOf(e),y:e.y-30,txt:'빈틈!',col:'#9fe8ff',life:30});}};
+
+/* 5) 판정 = 그림에 가깝게 */
+const _v10eh=eHit;eHit=function(e,box,m){if(e.boss){const a=BT.meleeScale/1.35,cx=box.x+box.w/2,by=box.y+box.h;box={x:cx-box.w*a/2,y:by-box.h*a,w:box.w*a,h:box.h*a};}_v10eh(e,box,m);};
+const _v10es=eSlashFx;eSlashFx=function(e,r,col){_v10es(e,e.boss?r*BT.meleeScale/1.35:r,col);};
+
+/* 6) 몸통 접촉은 피해 대신 밀어내기 · 보스전 한 방 피해 상한 */
+const _v10hp=hurtPlayer;hurtPlayer=function(dmg,src){
+ if(!P||P.dead||G.v9wipe||G.mode==='pvp')return _v10hp(dmg,src);
+ /* 보스 몸통 접촉은 atk*0.5 로만 호출됨 */
+ if(src&&src.boss&&!src.isProj&&Math.abs(dmg-src.atk*0.5)<0.01){const d=cxOf(P)>=cxOf(src)?1:-1;P.vx=d*5;P.x=clamp(P.x+d*2,0,G.roomW-P.w);return false;}
+ if(enemies.some(e=>e.boss&&!e.dead)){const k=DIFF[save.settings.diff].dmg*(1-(P.st.def||0));dmg=Math.min(dmg,P.maxHp*BT.hitCap[save.settings.diff]/Math.max(0.1,k));}
+ return _v10hp(dmg,src);};
+
+/* 7) 레이드 전멸기 목표를 내 화력 기준으로 */
+const _v10rt=raidTick;raidTick=function(e){const had=!!e.dps;_v10rt(e);
+ if(e.dps&&!had&&e.v10dps){const need=Math.max(1,Math.round(e.v10dps*10*BT.raidCheck));e.dps.need=need;
+  for(const f of fx)if(f.kind==='banner'&&f.t===0&&f.txt.indexOf('전멸기 —')>=0)f.txt=`⚠ 전멸기 — 10초 안에 ${need.toLocaleString()} 피해를 넣어라!`;}};
+
+/* 8) 보스방 재도전 (층마다 1회) */
+const _v10er=enterRoom;enterRoom=function(id,from){_v10er(id,from);const r=run&&run.rooms&&run.rooms[id];
+ if(r&&r.type==='boss'&&!r.cleared&&P&&(!run.bossCk||run.bossCk.floor!==run.floor))run.bossCk={floor:run.floor,hp:P.hp,pot:P.potions,ult:P.ultG};};
+const _v10od=onPlayerDeath;onPlayerDeath=function(){_v10od();
+ if(G.mode==='pvp'||!run||!run.rooms||!G.after)return;const r=run.rooms[run.cur],ck=run.bossCk;
+ if(r&&r.type==='boss'&&!r.cleared&&ck&&ck.floor===run.floor&&run.bossRetry!==run.floor)G.after.fn=bossRetryPrompt;};
+function bossRetryPrompt(){G.paused=true;G.modal='retry';
+ setModal(`<div class="scr center"><h2 style="color:#ff5a6a">쓰러졌다…</h2><div class="muted" style="margin:8px 0 16px">보스방 입구에서 한 번 더 도전할 수 있습니다 (층마다 1회).<br>보스 체력은 처음부터 다시 시작합니다.</div><div class="row" style="gap:12px"><button class="btn big gold" onclick="bossRetry()">⚔️ 보스 재도전</button><button class="btn big" onclick="G.modal=null;showResult(false)">🏳️ 포기</button></div></div>`);}
+function bossRetry(){const ck=run.bossCk;run.bossRetry=run.floor;G.modal=null;G.paused=false;G.after=null;setModal('');fx=[];G.slow=0;G.zoom=1;G.cut=null;
+ Object.assign(P,{dead:false,hp:Math.min(P.maxHp,Math.max(ck.hp,P.maxHp*0.6)),potions:Math.max(ck.pot,1),ultG:ck.ult,sta:P.staMax,lockT:0,inv:120,hurtT:0,sk:null,ul:null,vx:0,vy:0,plunge:false,charging:false,pvpStun:0,confT:0,v9stuck:0});
+ P.sh=P.shMax;cancelAttack();run.rooms[run.cur].cleared=false;enterRoom(run.cur,null);
+ addFx({kind:'banner',txt:'⚔️ 재도전 — 이번엔 꿰뚫어 보라',col:'#ffd77a',life:90});}
+
+/* 9) HUD: 브레이크 게이지 */
+const _v10hud=drawHUD;drawHUD=function(){_v10hud();if(!run||!P)return;const b=enemies.find(e=>e.boss&&!e.dead);if(!b||b.brkMax==null)return;const bw=420,bx=W/2-bw/2,y=57;
+ if(b.brkT>0){bar(bx,y,bw,4,b.brkT/BT.brkDur,(G.t>>2)%2?'#ffe07a':'#ff9a3c','#2a2010');txt('BREAK!',bx+bw+8,y+5,'#ffe07a',11,'left');}
+ else{bar(bx,y,bw,4,b.brk/b.brkMax,'#e8d070','#2a2614');txt('브레이크',bx+bw+8,y+5,'#c8b070',10,'left');}};
+const _v10den=drawEnemy;drawEnemy=function(e){_v10den(e);if(e.boss&&e.brkT>0&&!e.hide)txt('BREAK',cxOf(e),e.y-44,'#ffe07a',14,'center');};
+
+/* ── ② 강호 토벌록 · 고대 던전 · 유적 (v12) ── */
+/* ===================== 59. v12: 강호 토벌록 · 서장 · 보스 체력 계단 · 고대 던전 「천공의 폐성」 · 유적 연구 ===================== */
+const K12=a=>keyName(bind(a));
+/* ---- 1. 대보스 체력 계단 (노멀 기준 실제 체력 · 공격력 · 권장 레벨) ---- */
+[[10000,20,12],[18000,27,17],[27000,32,22],[38000,38,28],[50000,45,34],[150000,50,40]].forEach(([hp,atk,lv],i)=>
+ Object.assign(BOSSES[i],{hp:Math.round(hp/DIFF[1].hp),atk,lv,label:i<5?`대보스 · 제${i+1}장`:'레이드 · 최후의 시련'}));
+BOSSES[5].sec=240;
+
+/* ---- 2. 사파 세력 잡몹 ---- */
+PAL.thug={id:'thug',h:'#3a2a1a',s:'#d8a070',e:'#111',c:'#5a4a3a',d:'#3a2e22',b:'#2a2a2a',l:'#3a3028',f:'#1a1410',r:'#8a2a1a'};
+PAL.band={id:'band',h:'#1a1418',s:'#e0a878',e:'#111',c:'#3a3020',d:'#241c12',b:'#6a4a20',l:'#2a2418',f:'#140f0a',r:'#5a5a5a'};
+PAL.blood={id:'blood',h:'#140808',s:'#e8b483',e:'#ff2030',c:'#5a0e14',d:'#300608',b:'#ff3040',l:'#1e0a0c',f:'#0c0406',r:'#8a0e18'};
+PAL.viper={id:'viper',h:'#1a2a14',s:'#d8c890',e:'#9fff4a',c:'#2a4a1e',d:'#16280e',b:'#9fff4a',l:'#1c2a14',f:'#0c140a',r:'#3a6a2a'};
+PAL.gwi={id:'gwi',h:'#0c0c12',s:'#d8b8a0',e:'#ff2040',c:'#1a1a24',d:'#0c0c12',b:'#c0c0d0',l:'#16161e',f:'#060608',r:'#ff2040',v:'#0a0a0e'};
+PAL.hyeolma={id:'hyeolma',n:'#f3e6c4',h:'#3a0a10',e:'#ff3040',r:'#f3e6c4',c:'#2a0a10',d:'#14040a',b:'#ff3040',l:'#2a0a10',f:'#0a0204',s:'#3a0a10'};
+PAL.stone={id:'stone',c:'#6a7484',h:'#56606e',s:'#56606e',l:'#3a4250',f:'#1e2430',d:'#3a4250',b:'#7fe0ff',e:'#7fe0ff'};
+PAL.spirit={id:'spirit',s:'#cfe8ff',h:'#cfe8ff',c:'#1a2a3a',d:'#0e1824',b:'#7fe0ff',l:'#1a2a3a',f:'#0a1018'};
+PAL.geomsin={id:'geomsin',h:'#f4f0e6',s:'#f0d0b0',c:'#f0e8d0',d:'#b8a878',b:'#ffd34d',l:'#d8cfb0',f:'#6a5a3a'};
+Object.assign(ENEMIES,{
+ thug:{name:'단철방 졸개',hp:70,atk:11,spd:1.6,w:26,h:48,xp:8,gold:[3,6],ai:'melee',wind:32,palette:PAL.thug,desc:'철퇴를 든 뒷골목 왈패. 느리지만 한 방이 묵직하다.'},
+ bandit:{name:'흑랑채 산적',hp:60,atk:10,spd:2.4,w:24,h:46,xp:8,gold:[3,7],ai:'melee',wind:22,palette:PAL.band,desc:'단검 두 자루로 빠르게 파고드는 산적.'},
+ xbow:{name:'흑랑채 노수',hp:50,atk:10,spd:1.5,w:24,h:46,xp:8,gold:[3,6],ai:'ranged',palette:PAL.band,poseAs:'archer',desc:'나무 위에서 쇠뇌를 쏘는 산적. 화살은 패링으로 되돌릴 수 있다.'},
+ blood:{name:'혈수문 살수',hp:110,atk:15,spd:2.6,w:24,h:46,xp:13,gold:[5,9],ai:'melee',wind:20,palette:PAL.blood,desc:'예비 동작이 짧은 살수. 붉은 깜빡임을 놓치지 마라.'},
+ viper:{name:'독사방 독침수',hp:95,atk:14,spd:1.6,w:24,h:46,xp:13,gold:[5,9],ai:'ranged',palette:PAL.viper,poseAs:'archer',desc:'멀리서 독침을 날리는 독술사.'},
+ gwigeom:{name:'귀검대 검귀',hp:190,atk:20,spd:1.8,w:26,h:48,xp:20,gold:[7,12],ai:'melee',wind:26,palette:PAL.gwi,desc:'이름을 버린 일류 검객. 쉽게 밀리지 않는다.'}});
+Object.assign(ERIG,{thug:'thug',bandit:'bandit',xbow:'xbow',blood:'blood',viper:'viper',gwigeom:'gwigeom'});
+Object.assign(SA_T,{thug:1,blood:1,gwigeom:3});
+Object.assign(RIGDEF,{
+ thug:{head:'novice',body:'garb',w:'club',sw:8,ww:6,skirt:2,flare:1,lw:3,armw:2.2,tails:'band'},
+ bandit:{head:'hood',body:'garb',w:'dagger',dual:true,sw:6,ww:5,skirt:2,flare:1,tails:'scarf'},
+ xbow:{head:'hood',body:'garb',w:'bow',sw:6,ww:5,skirt:4,flare:2,tails:'scarf'},
+ blood:{head:'hood',body:'garb',w:'katana',sw:6,ww:5,skirt:5,flare:2,tails:'scarf',glow:'#ff3040'},
+ viper:{head:'hoodG',body:'mrobe',w:'bow',sw:6,ww:6,skirt:9,flare:3},
+ gwigeom:{head:'helmR',body:'armor',w:'redkatana',sw:8,ww:6,skirt:4,flare:1.5,cape:'#1a0a0e',capeHi:'#ff2040',glow:'#ff2040'}});
+const _v12ep=enemyPose;enemyPose=function(e){if(e.D&&e.D.poseAs){const t=e.type;e.type=e.D.poseAs;try{return _v12ep(e);}finally{e.type=t;}}return _v12ep(e);};
+
+/* ---- 3. 서장 · 강호 토벌록 데이터 ---- */
+const PRO=[
+ {n:'서장 1 · 사당의 수련',d:'움직이고, 베고, 뛰어라. 검의 첫걸음.',lv:1,gold:150,xp:150,sc:0.6,th:0,
+  intro:[['사당지기','검을 쥐는 법부터 다시 배우게. 저 점액들은 자네를 해치지 못할 걸세… 아마도.']],
+  outro:[['사당지기','손은 기억하는군. 다음은 칼끝을 읽는 법일세.']],
+  waves:[{e:['slime','slime'],tip:K=>`[${K('left')}/${K('right')}] 이동 · [${K('attack')}] 연타로 3연격`},
+   {e:['slime','slime','slime'],tip:K=>`[${K('jump')}] 2단 점프 · 공중에서 [${K('down')}]+[${K('attack')}] 낙하 베기`},
+   {e:['bat','bat','slime'],tip:()=>'박쥐는 급강하한다 — 뛰어올라 베어라'}]},
+ {n:'서장 2 · 칼끝을 읽어라',d:'붉게 깜빡이는 순간이 기회다. 패링과 회피를 익혀라.',lv:2,gold:200,xp:220,sc:0.6,th:0,
+  intro:[['사당지기','망령 검사는 휘두르기 직전에 붉게 빛나지. 그 순간 칼을 맞대게.']],
+  outro:[['사당지기','좋아. 튕겨낸 적은 비틀거리지. 그 틈이 곧 승리일세.']],
+  waves:[{e:['skeleton'],tip:K=>`적이 붉게 깜빡이면 [${K('parry')}] 패링 — 튕겨낸 적은 비틀거린다`},
+   {e:['skeleton','skeleton'],tip:K=>`[${K('dodge')}] 회피는 잠깐 무적 — 대신 노란 기력을 쓴다`},
+   {e:['archer','skeleton'],tip:()=>'화살은 칼로 베거나 패링으로 되돌릴 수 있다'}]},
+ {n:'서장 3 · 무너진 성문',d:'성문을 지키던 망령 기사. 배운 모든 것을 써라.',lv:3,gold:300,xp:340,sc:0.65,th:0,
+  intro:[['','사당 아래, 무너진 성문 앞. 녹슨 갑주가 몸을 일으킨다.'],['망령 기사','…검을 든 자여. 이 문은… 지나갈 수 없다.']],
+  outro:[['사당지기','해냈군. 자네 칼끝이 제 길을 찾을 준비가 됐네.'],['사당지기','거점의 [전직]에서 길을 고르게. 강호에는 자네 같은 애송이를 노리는 놈들이 득실거리지.']],
+  waves:[{e:['skeleton','slime','slime'],tip:K=>`[${K('potion')}] 물약으로 회복 — 체력 관리도 실력이다`},
+   {e:['fallen'],elite:true,name:'망령 기사',hpMul:2,tip:()=>'⚔ 망령 기사 — 묵직한 베기는 패링, 연속 공격은 회피'}]}];
+const FAC=[
+ {n:'단철방 — 철퇴의 뒷골목',tier:'삼류',tc:'#6a6a7a',ch:0,th:0,sc:0.8,gold:300,xp:280,soul:3,
+  d:'성 아래 장터의 대장간을 차지한 왈패 무리. 철퇴 한 자루로 동네를 주무른다.',
+  intro:[['','무너진 성 아래 장터. 망치 소리 대신 비명이 울린다.'],['단철방 졸개','어이, 칼 찬 애송이! 이 길은 통행세를 내야 지나간다고.']],
+  waves:[{e:['thug','thug']},{e:['thug','thug','thug']},{e:['thug','thug','slime','slime']},{boss:1,talk:[['철퇴 마삼','내 아우들을 건드려? 네 칼을 엿가락처럼 휘어 주마!']]}],
+  outro:[['철퇴 마삼','크윽… 삼류 주제에 판을 너무 크게 벌렸나…'],['철퇴 마삼','성 밖 산길은 흑랑채 놈들 구역이다… 가서 뼈나 추려 와라.']]},
+ {n:'흑랑채 — 산길의 늑대들',tier:'삼류',tc:'#6a6a7a',ch:0,th:0,sc:0.9,gold:400,xp:380,soul:4,
+  d:'왕국으로 가는 산길을 막은 산적 떼. 늑대처럼 무리 지어 사냥한다.',
+  intro:[['','왕국으로 이어지는 산길. 나무 위에서 쇠뇌 시위 당기는 소리가 들린다.'],['흑랑채 산적','늑대 굴에 제 발로 들어온 토끼로군!']],
+  waves:[{e:['bandit','bandit']},{e:['bandit','xbow','bandit']},{e:['xbow','xbow','bandit','bandit']},{boss:1,talk:[['흑랑 독고','단철방 돼지를 잡았다고 늑대까지 잡을 줄 알았나? 물어뜯어라!']]}],
+  outro:[['흑랑 독고','쳇… 왕국 폐허엔 망령왕이 산다더군. 네 칼이 거기서도 버틸지 보자고.'],['','산길이 열렸다. 그 끝에 잊혀진 왕국의 성문이 보인다.']]},
+ {n:'혈수문 — 피로 씻는 손',tier:'이류',tc:'#3a7a5a',ch:1,th:1,sc:1.15,gold:600,xp:600,soul:5,
+  d:'붉은 광산의 광부들을 부리는 살수 문파. 돈만 주면 누구든 벤다.',
+  intro:[['','붉은 광산 입구. 광부들이 쇠사슬에 묶여 있다.'],['혈수문 살수','적철광은 우리 문주님 것이다. 구경꾼은 피로 값을 치르지.']],
+  waves:[{e:['blood','blood']},{e:['blood','xbow','oni']},{e:['blood','blood','blood','xbow']},{boss:1,talk:[['혈수 사도','이류라 깔보지 마라. 이 손에 씻긴 피가 광맥보다 붉다.']]}],
+  outro:[['혈수 사도','광산 깊은 곳의 거신이 깨어나고 있다… 우리도 그걸 막으려 했던 거다…'],['','쇠사슬이 풀린 광부들이 갱도 깊은 곳을 가리킨다.']]},
+ {n:'독사방 — 폐성당의 독',tier:'이류',tc:'#3a7a5a',ch:2,th:2,sc:1.45,gold:800,xp:850,soul:6,
+  d:'몰락한 성기사단의 성당에 똬리를 튼 독술 문파. 바늘 하나에 장정 셋이 쓰러진다.',
+  intro:[['','무너진 성당. 스테인드글라스 사이로 초록빛 연기가 새어 나온다.'],['독사방 독침수','쉿… 숨을 크게 쉬면 독이 빨리 돈다네.']],
+  waves:[{e:['viper','viper']},{e:['viper','blood','skeleton']},{e:['viper','viper','fallen']},{boss:1,talk:[['만독 사옥란','성기사단은 썩었지. 썩은 것 위에 꽃을 피우는 게 독사의 일이란다.']]}],
+  outro:[['만독 사옥란','벨카… 그 고지식한 단장은 아직 성당 안에서 맹세를 지키고 있어…'],['','성당 깊은 곳에서 성광이 깜빡인다.']]},
+ {n:'귀검대 — 그림자 속 칼',tier:'일류',tc:'#3a5aa0',ch:3,th:3,sc:1.8,gold:1100,xp:1200,soul:8,
+  d:'심연의 기운을 받아들인 검객 집단. 이름을 버리고 칼만 남겼다.',
+  intro:[['','심연의 가장자리. 얼굴 없는 검객들이 줄지어 서 있다.'],['귀검대 검귀','…이름을 대라. 베고 나면 기억해 주마.']],
+  waves:[{e:['gwigeom','gwigeom']},{e:['gwigeom','caster','viper']},{e:['gwigeom','gwigeom','gwigeom']},{boss:1,talk:[['귀검 무영','일류의 칼은 소리가 없다. 네가 듣는 마지막 소리는 네 숨이겠지.']]}],
+  outro:[['귀검 무영','마왕은… 우리에게 힘을 줬다. 그리고 이름을 가져갔지…'],['','심연의 균열이 맥박치듯 열린다.']]},
+ {n:'사파맹 — 흑도의 맹주',tier:'절정',tc:'#a03a5a',ch:4,th:4,sc:2.1,gold:1500,xp:1700,soul:10,
+  d:'강호의 모든 사파를 하나로 묶은 맹주. 검의 종착지로 가는 마지막 관문을 지킨다.',
+  intro:[['','검의 언덕 기슭. 사파의 깃발이 핏빛 바람에 펄럭인다.'],['혈마 철광','단철방부터 귀검대까지… 내 아이들을 전부 베고 왔군.'],['혈마 철광','검성의 칭호는 사파의 것이 되어야 한다. 그 길목에서 너를 꺾겠다.']],
+  waves:[{e:['gwigeom','blood','oni']},{e:['gwigeom','gwigeom','viper','fallen']},{boss:1,talk:[['혈마 철광','절정의 벽이 얼마나 높은지, 몸으로 배워라!']]}],
+  outro:[['혈마 철광','하… 하하… 정파도 사파도 아닌… 그냥 검객이었군, 너는…'],['혈마 철광','가라. 언덕 꼭대기의 그놈은… 나조차 베지 못했다.']]}];
+
+/* ---- 4. 중간보스 6 · 고대 보스 3 ---- */
+const MID=[
+ {B:{name:'철퇴 마삼',title:'단철방주',label:'삼류 세력 · 단철방',hp:2500,atk:16,spd:1.3,w:40,h:74,palette:PAL.thug,head:'novice',patterns:['combo','slam','dash','slam'],blade:{col:'#8a6a4a'},gold:[60,90],xp:120,def:0.05,lv:5,lootIdx:0,mid:1,desc:'단철방의 방주. 모루를 내려치던 철퇴로 사람을 친다. 내려찍기 뒤의 빈틈을 노려라.'},
+  rig:{head:'novice',body:'garb',w:'club',s:1.45,sw:10,ww:8,skirt:3,flare:1,lw:3.4,armw:2.6,tails:'band'},pn:{combo:'철퇴 난타',slam:'모루 찍기',dash:'어깨 들이받기',nova:'분노의 철퇴'}},
+ {B:{name:'흑랑 독고',title:'흑랑채주',label:'삼류 세력 · 흑랑채',hp:4500,atk:18,spd:1.9,w:34,h:72,palette:PAL.band,head:'hood',patterns:['combo','dash','summon','dash'],summon:'bandit',blade:{col:'#e0e0e8',glow:'#c0c0d0'},gold:[80,110],xp:180,def:0.06,lv:8,lootIdx:0,mid:1,desc:'산길을 막은 산적 두목. 부하를 불러 포위한 뒤 질주해 물어뜯는다.'},
+  rig:{head:'hood',body:'garb',w:'dagger',dual:true,s:1.4,sw:7,ww:6,skirt:3,flare:1,tails:'scarf'},pn:{combo:'늑대 이빨',dash:'질주 습격',summon:'늑대 무리 호출',nova:'광랑의 포효'}},
+ {B:{name:'혈수 사도',title:'혈수문주',label:'이류 세력 · 혈수문',hp:9000,atk:23,spd:2.0,w:36,h:76,palette:PAL.blood,head:'hood',patterns:['combo','teleport','dash','homing'],blade:{col:'#ff8080',glow:'#ff3040'},gold:[110,150],xp:260,def:0.08,lv:14,lootIdx:1,mid:1,desc:'돈을 받고 피를 씻는 살수 문주. 순간이동 뒤의 일격이 가장 위험하다.'},
+  rig:{head:'hood',body:'garb',w:'katana',s:1.45,sw:7,ww:6,skirt:6,flare:2,tails:'scarf',glow:'#ff3040'},pn:{combo:'혈수 연참',teleport:'혈영보',dash:'혈풍 돌격',homing:'혈구 추적',nova:'혈해'}},
+ {B:{name:'만독 사옥란',title:'독사방주',label:'이류 세력 · 독사방',hp:15000,atk:27,spd:1.4,w:36,h:78,palette:PAL.viper,head:'hoodG',patterns:['volley','mortar','summon','teleport'],summon:'viper',blade:{col:'#9fff4a',glow:'#9fff4a'},gold:[140,190],xp:340,def:0.1,lv:19,lootIdx:1,mid:1,desc:'폐성당에 둥지를 튼 독술의 대가. 거리를 벌리고 탄막을 뿌린다 — 파고들어라.'},
+  rig:{head:'hoodG',body:'mrobe',w:'staff',s:1.45,sw:7,ww:7,skirt:12,flare:4,cape:'#16280e',capeHi:'#3a6a2a',glow:'#9fff4a'},pn:{volley:'독침 난사',mortar:'독무 포격',summon:'독사 호출',teleport:'사영보',nova:'만독 개화'}},
+ {B:{name:'귀검 무영',title:'귀검대주',label:'일류 세력 · 귀검대',hp:22000,atk:32,spd:2.0,w:38,h:80,palette:PAL.gwi,head:'helmR',patterns:['combo','dash','teleport','laser','combo'],blade:{col:'#ff8090',glow:'#ff2040'},gold:[180,240],xp:430,def:0.12,lv:25,lootIdx:2,mid:1,desc:'이름을 버린 일류 검객들의 수장. 소리 없는 일섬과 그림자 걸음.'},
+  rig:{head:'helmR',body:'armor',w:'redkatana',s:1.5,sw:9,ww:6,skirt:5,flare:2,cape:'#1a0a0e',capeHi:'#ff2040',glow:'#ff2040'},pn:{combo:'귀검 난무',dash:'무영섬',teleport:'그림자 걸음',laser:'귀광 일섬',nova:'백귀 해방'}},
+ {B:{name:'혈마 철광',title:'사파맹주',label:'절정 · 사파맹',hp:32000,atk:37,spd:1.6,w:42,h:86,palette:PAL.hyeolma,head:'oni',patterns:['combo','slam','pillars','homing','dash','summon'],summon:'gwigeom',blade:{col:'#c8c0c0',glow:'#ff3040'},gold:[230,300],xp:540,def:0.14,lv:31,lootIdx:3,mid:1,desc:'강호의 사파를 하나로 묶은 맹주. 검의 종착지 앞의 마지막 벽.'},
+  rig:{head:'oni',body:'kingarmor',w:'greatsword',s:1.6,sw:10,ww:7,skirt:6,flare:2,cape:'#2a0408',capeHi:'#ff3040',glow:'#ff3040'},pn:{combo:'혈마 참',slam:'천근추',pillars:'혈주(血柱)',homing:'혈마탄',dash:'혈마 돌진',summon:'귀검 호출',nova:'혈마 강림'}}];
+const ANC=[
+ {B:{name:'고대 수문장 · 석괴',title:'천공의 폐성 1층',label:'고대 던전 · 1층',hp:100000,atk:48,spd:1.0,w:62,h:104,palette:PAL.stone,patterns:['slam','mortar','dash','rain','slam','homing'],blade:{col:'#7fe0ff',glow:'#7fe0ff'},gold:[400,520],xp:800,def:0.2,lv:38,lootIdx:4,anc:1,desc:'폐성의 문을 지키는 돌의 거인. 수천 년 동안 단 한 번도 문을 연 적이 없다.'},
+  rig:{head:'golemH',body:'brute',w:'club',s:1.95,sw:12,ww:9,skirt:3,flare:1,lw:4.2,armw:3.6,glow:'#7fe0ff'},pn:{slam:'천근 낙석',mortar:'고대 포격',dash:'석벽 돌진',rain:'붕괴',homing:'수호 영혼탄',nova:'봉인 해제'}},
+ {B:{name:'천공의 검령',title:'천공의 폐성 2층',label:'고대 던전 · 2층',hp:130000,atk:52,spd:1.8,w:44,h:96,palette:PAL.spirit,patterns:['laser','homing','teleport','volley','pillars','combo'],blade:{col:'#cfe8ff',glow:'#7fe0ff'},gold:[480,600],xp:950,def:0.22,lv:40,lootIdx:4,anc:1,desc:'폐성에 꽂힌 거대한 검에 깃든 혼. 검을 뽑으려던 자들의 원념이 형체를 이뤘다.'},
+  rig:{head:'skull',body:'mrobe',w:'ghost',s:1.75,sw:9,ww:7,skirt:13,flare:5,cape:'#14223a',capeHi:'#7fe0ff',tatter:true,float:true,glow:'#7fe0ff',eyes:[[6,4],[9,4]]},pn:{laser:'천공 일섬',homing:'원념탄',teleport:'검령 강림',volley:'비검 난사',pillars:'천검 낙하',combo:'혼백 연참',nova:'검령 폭주'}},
+ {B:{name:'태고의 검신',title:'천공의 폐성 최심부',label:'고대 던전 · 3층',hp:180000,atk:58,spd:2.0,w:46,h:100,palette:PAL.geomsin,patterns:['combo','laser','teleport','homing','pillars','dash','mortar','volley'],blade:{col:'#fff3c4',glow:'#ffd34d'},gold:[600,800],xp:1300,def:0.25,lv:42,lootIdx:4,anc:1,desc:'최초로 검을 쥔 자. 모든 유파는 그의 칼끝에서 갈라져 나왔다.'},
+  rig:{head:'geom',body:'robe',w:'holy',s:1.8,sw:8,ww:7,skirt:11,flare:3,tails:'whitehair',glow:'#ffd34d',trim:'#ffd34d',cape:'#e8e0c8',capeHi:'#ffd34d'},pn:{combo:'태고 연무',laser:'개천(開天)',teleport:'천보',homing:'검기 추적',pillars:'만검귀종',dash:'일보 일살',mortar:'천벌',volley:'검우',nova:'검신 강림'}}];
+function pushBoss(B,rig,pn){const i=BOSSES.length;B.hp=Math.round(B.hp/DIFF[1].hp);B.ps=6;BOSSES.push(B);RIGDEF['b'+i]=rig;PNAME[i]=pn;return i;}
+MID.forEach((m,k)=>{FAC[k].bi=pushBoss(m.B,m.rig,m.pn);});
+const ANC_IDX=ANC.map(a=>pushBoss(a.B,a.rig,a.pn));
+
+/* 보스 체력 최종 확정 (v10이 있어도 이 값으로 덮어씀) · 원정 보스 50% · 브레이크 초기화 */
+const _v12sb=spawnBoss;spawnBoss=function(idx){const e=_v12sb(idx);if(!e)return e;const m=run?run.mode:'';
+ const sc=DIFF[save.settings.diff].hp*(m==='expedition'?(1+(run.floor-1)*0.04)*0.5:1)*(m==='endless'?0.6+run.wave*0.03:1);
+ e.hp=e.maxHp=Math.max(1,Math.round(e.B.hp*sc));
+ if(e.brkMax==null)Object.assign(e,{brk:0,brkMax:100,brkN:0,brkT:0,brkHit:0});if(e.B.mid)e.brkMax=70;return e;};
+const _v12rt=raidTick;raidTick=function(e){const had=!!e.dps;_v12rt(e);
+ if(e.dps&&!had){const need=Math.round(e.maxHp/((e.B&&e.B.sec)||240)*10*0.55);e.dps.need=need;
+  for(const f of fx)if(f.kind==='banner'&&f.t===0&&f.txt.indexOf('전멸기 —')>=0)f.txt=`⚠ 전멸기 — 10초 안에 ${need.toLocaleString()} 피해를 넣어라!`;}};
+/* 중간보스·고대 보스 보상 단계 보정 */
+const _v12ke=killEnemy;killEnemy=function(e){if(!e||e.dead||!e.boss||!e.B||e.B.lootIdx==null){_v12ke(e);return;}
+ const i=e.idx;e.idx=e.B.lootIdx;try{_v12ke(e);}finally{e.idx=i;}
+ if(e.B.anc&&G.mode!=='training'){ensureV9();save.shards+=6;save.marks+=2;toast('🏛️ 고대의 보스 — 💠 +6 · 🔱 +2');}};
+
+/* ---- 5. 저장 · 진행도 ---- */
+function ensureV12(){if(typeof save.prologue!=='number')save.prologue=(save.chapter>=1||save.jobDone||save.level>=5)?3:0;
+ if(!save.fac||typeof save.fac!=='object')save.fac={};if(!save.stele||typeof save.stele!=='object')save.stele={};
+ for(let i=0;i<FAC.length;i++)if(save.chapter>FAC[i].ch&&!save.fac[i])save.fac[i]=1;}
+function campSteps(){const s=PRO.map((p,i)=>({k:'pro',i}));for(let c=0;c<5;c++){FAC.forEach((f,i)=>{if(f.ch===c)s.push({k:'fac',i});});s.push({k:'ch',i:c});}return s;}
+function campStat(s){if(s.k==='pro')return{done:s.i<save.prologue,open:s.i<=save.prologue};
+ if(s.k==='fac'){const f=FAC[s.i],first=FAC.findIndex(x=>x.ch===f.ch);return{done:!!save.fac[s.i],open:save.prologue>=3&&save.chapter>=f.ch&&(s.i===first||!!save.fac[s.i-1])};}
+ return{done:s.i<save.chapter,open:s.i<=save.chapter};}
+function stepInfo(s){if(s.k==='pro')return{name:PRO[s.i].n,fn:`playStage('pro',${s.i})`};
+ if(s.k==='fac')return{name:`〔${FAC[s.i].tier}〕 ${FAC[s.i].n.split(' — ')[0]} 토벌`,fn:`playStage('fac',${s.i})`};
+ return{name:`제${s.i+1}장 · ${STORY[s.i].title}`,fn:`startChapter(${s.i})`};}
+
+/* ---- 6. 스테이지(서장·세력) 진행 ---- */
+function playStage(kind,i){ensureV12();if(!campStat({k:kind,i}).open)return;const D=kind==='pro'?PRO[i]:FAC[i];setUI('');showDialog(D.intro,()=>stageStart(kind,i));}
+function stageStart(kind,i){const D=kind==='pro'?PRO[i]:FAC[i];G.lastStg={kind,i};startRun('endless');G.mode='stage';run.mode='stage';run.chapter=i;
+ run.stg={kind,i,D,t:70};run.theme=D.th||0;run.scale=D.sc||1;run.wave=0;run.waveActive=false;
+ run.lbl=()=>`${kind==='pro'?'📖':'⚔️'} ${D.n} · ${Math.min(run.wave,D.waves.length)}/${D.waves.length}`;
+ fx=fx.filter(f=>f.kind!=='banner');addFx({kind:'banner',txt:(kind==='fac'?`〔${D.tier}〕 `:'')+D.n,col:'#ffd77a',life:100});}
+function stageTick(){if(!run||!P||P.dead||run.done||G.modal)return;const S=run.stg,D=S.D,alive=enemies.some(e=>!e.dead);
+ if(run.waveActive){if(!alive){run.waveActive=false;if(run.wave>=D.waves.length){run.done=1;stageClear();}else S.t=80;}return;}
+ if(--S.t>0)return;const w=D.waves[run.wave];run.wave++;run.waveActive=true;
+ for(const k of w.e||[]){const e=spawnEnemy(k,spawnX(220),{elite:!!w.elite});if(e&&w.name){e.name=w.name;e.hp=e.maxHp=Math.round(e.maxHp*(w.hpMul||1));}}
+ if(w.tip)addFx({kind:'banner',txt:w.tip(K12),col:'#9fe8ff',life:200});
+ if(w.boss){const go=()=>spawnBoss(D.bi);if(w.talk)showDialog(w.talk,go);else go();}}
+function stageClear(){ensureV12();const S=run.stg,D=S.D,first=S.kind==='pro'?save.prologue<=S.i:!save.fac[S.i],m=first?1:0.3;
+ const g=gainGold(Math.round(D.gold*m)),x=Math.round(D.xp*m);gainXp(x);
+ if(S.kind==='pro'){if(first)save.prologue=Math.max(save.prologue,S.i+1);if(S.i===2)while(save.level<5)gainXp(Math.max(1,xpNeed(save.level)-save.xp));}
+ else if(first){save.fac[S.i]=1;save.soul=(save.soul||0)+(D.soul||0);}
+ sfx('level');addFx({kind:'banner',txt:`${D.n.split(' — ')[0]} 돌파!`,col:'#ffd77a',life:100});writeSave(true);
+ const msg=`${D.n} 돌파! ${g}G · EXP ${x}${first&&D.soul?` · 🔮 ${D.soul}`:''}`;
+ G.after={t:100,fn:()=>showDialog(D.outro,()=>showResult(true,msg))};}
+const _v12cc=checkClear;checkClear=function(){if(G.mode==='stage'){stageTick();return;}_v12cc();};
+/* HUD 라벨: run.lbl 이 있으면 그것을 표시 */
+const _v12lb=v9Label;v9Label=function(){return run&&run.lbl?run.lbl():_v12lb();};
+const _v12hud=drawHUD;drawHUD=function(){if(run&&run.lbl&&G.mode!=='raid'&&G.mode!=='chal'){const m=G.mode;G.mode='chal';try{_v12hud();}finally{G.mode=m;}}else _v12hud();};
+const _v12res=showResult;showResult=function(w,msg){const md=run&&run.mode,st=run&&run.stg,anc=md==='ancient'?run.floor:0;_v12res(w,msg);
+ if(md!=='stage'&&md!=='ancient')return;const td=document.querySelectorAll('#modal table.rec td');
+ if(td[1])td[1].textContent=md==='ancient'?'🏛️ 고대 던전':st&&st.kind==='pro'?'📖 서장':'⚔️ 강호 토벌';if(td[3])td[3].textContent=md==='ancient'?`천공의 폐성 ${anc}/3층`:(st?st.D.n:'-');};
+const _v12rr=retryRun;retryRun=function(){const L=LASTRUN;if(L&&L.m==='stage'&&G.lastStg){const s=G.lastStg;goHub();stageStart(s.kind,s.i);return;}if(L&&L.m==='ancient'){goHub();startAncient();return;}_v12rr();};
+const _v12sc=startChapter;startChapter=function(i){ensureV12();const B=BOSSES[i],pend=FAC.filter((f,j)=>f.ch===i&&!save.fac[j]);
+ if(i===0&&save.prologue<3&&!confirm('서장을 마치지 않았습니다. 서장에서 기본기를 익히고 전직하면 훨씬 수월합니다.\n그래도 출격할까요?'))return;
+ if(pend.length&&!confirm(`먼저 ${pend.map(f=>f.n.split(' — ')[0]).join(', ')}을(를) 토벌하면 훨씬 수월합니다.\n그래도 출격할까요?`))return;
+ if(B.lv&&save.level<B.lv-3&&!confirm(`권장 레벨은 Lv.${B.lv}입니다 (현재 Lv.${save.level}). 그래도 출격할까요?`))return;
+ _v12sc(i);};
+
+/* ---- 7. 캠페인 화면 · 거점 · 도감 ---- */
+function campRow(s){const{done,open}=campStat(s),I=stepInfo(s);let ic,t,d,sub;
+ if(s.k==='pro'){const p=PRO[s.i];ic='📖';t=p.n;d=p.d;sub=`권장 Lv.${p.lv} · ${p.gold}G · EXP ${p.xp}${s.i===2?' · Lv5 보장 → 전직':''}`;}
+ else if(s.k==='fac'){const f=FAC[s.i],B=BOSSES[f.bi];ic='⚔️';t=`<span class="badge" style="background:${f.tc};margin:0 4px 0 0">${f.tier}</span>${f.n}`;d=f.d;sub=`중간보스 ${B.name} · HP ${Math.round(B.hp*DIFF[1].hp).toLocaleString()} · 권장 Lv.${B.lv} · ${f.gold}G · EXP ${f.xp} · 🔮${f.soul}`;}
+ else{const S=STORY[s.i],B=BOSSES[s.i];ic='👑';t=`제${s.i+1}장 · ${S.title}`;d=S.desc;sub=`대보스 ${B.name} · HP ${Math.round(B.hp*DIFF[1].hp).toLocaleString()} · 권장 Lv.${B.lv} · 보상 ${done?'재도전 30%':S.reward}`;}
+ return`<div class="card ${open?'':'lock'}" style="padding:7px${s.k==='ch'?';border-color:#a7781e':''}"><div class="row" style="justify-content:space-between"><div><div class="ct">${ic} ${t} ${done?'<span style="color:#6dff8a">✔</span>':''}</div><div class="kv sm">${d}</div><div class="kv sm muted">${sub}</div></div><button class="btn ${open&&!done?'gold':''}" ${open?'':'disabled'} onclick="${I.fn}">${!open?'🔒':done?'다시':'출격'}</button></div></div>`;}
+function skipPrologue(){if(!confirm('서장을 건너뛸까요? 서장 보상은 받지 않습니다.'))return;save.prologue=3;writeSave(true);showCampaign();}
+showCampaign=function(){ensureV12();G.back=showHub;
+ setUI(`<div class="scr"><div class="hdr"><h2>📜 스토리 · 강호 토벌록</h2><div class="row">${save.prologue<3?'<button class="btn sm" onclick="skipPrologue()">⏭ 서장 건너뛰기</button>':''}<button class="btn" onclick="setUI(\'\');showDialog(PROLOGUE,showCampaign,\'pro\')">프롤로그</button><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="muted sm" style="margin-bottom:6px">서장 → 삼류 · 이류 · 일류 · 절정 세력 → 대보스 순으로 한 계단씩 올라갑니다. 체력은 노멀 기준입니다.</div><div class="scroll col" style="flex:1">${campSteps().map(campRow).join('')}</div></div>`);};
+const _v12hub=showHub;showHub=function(){ensureV12();_v12hub();const L=document.querySelector('#ui .hub-left');if(!L)return;
+ const nx=campSteps().find(s=>{const c=campStat(s);return c.open&&!c.done;}),t=L.querySelector('.hub-title');
+ if(nx&&t){const I=stepInfo(nx);t.insertAdjacentHTML('afterend',`<button class="btn gold big" style="grid-column:1/-1" onclick="${I.fn}">▶ 다음 목표: ${I.name}</button>`);}
+ const ok=save.chapter>=5||save.level>=35,n=STELE.filter(x=>save.stele[x.id]).length,last=L.lastElementChild;
+ if(last)last.insertAdjacentHTML('beforebegin',`<button class="btn red" onclick="startAncient()">🏛️ 고대 던전${ok?'':' 🔒'}</button><button class="btn" onclick="showStele()">📜 유적 연구 <span class="muted">${n}/${STELE.length}</span></button>`);};
+const _v12cx=showCodex;showCodex=function(tab){_v12cx(tab);if(tab!=='boss')return;const g=document.querySelector('#ui .grid3');if(!g)return;
+ g.innerHTML=BOSSES.map((B,i)=>{const kn=save.codex['boss'+i];return`<div class="card"><div class="muted">${B.label||B.title}</div><div class="ct">${kn?B.name:'???'}</div><div class="kv">${kn?B.desc:'아직 쓰러뜨리지 않은 보스입니다.'}</div>${kn?`<div class="kv muted">HP ${Math.round(B.hp*DIFF[1].hp).toLocaleString()} (노멀) · 권장 Lv.${B.lv||'-'}</div>`:''}</div>`;}).join('');};
+
+/* ---- 8. 새 맵: 천공의 폐성 ---- */
+THEMES.push({name:'천공의 폐성',sky:['#05070f','#36506e'],moon:'#bfe8ff',far:'#141c2c',near:'#0e1420',ground:'#2e3646',top:'#ffe8a0',pcol:'#7fe0ff'});
+POOLS.push(['gwigeom','fallen','caster','blood','viper','oni']);
+BGDEF.push({moon:[360,52,'#bfe8ff'],build(){
+ const R=mulberry(606),sky=bgCanvas();useG(sky);bands(['#04060e','#0a1326','#13233e','#1f3558','#34506e'],BGH);
+ for(let i=0;i<140;i++)rr(R()*BGW,R()*170,1,1,R()<0.2?'#ffffff':R()<0.5?'#9fc8ff':'#4a6a9a');
+ for(let x=0;x<BGW;x++){const y=Math.round(36+Math.sin(x*0.021)*14+Math.sin(x*0.057)*5);for(let k=0;k<20;k+=2)rr(x,y+k+(x%2),1,1,k<6?'#3a9aa8':k<12?'#2a6a8a':'#1c3a5e');}
+ ditherCirc(360,52,30,'#2a4a6a');rcirc(360,52,22,'#bfe8ff');rcirc(366,56,18,'#9fd0f0');rcirc(356,48,15,'#e6f6ff');
+ for(let i=0;i<16;i++)cloud(R()*BGW,178+R()*30,8+R()*8,'#26365a','#4a6a90','#18263e',R);
+ const far=bgCanvas();useG(far);
+ for(const[cx,cy,w]of[[70,124,56],[250,98,92],[420,132,48]]){const tw=[0,1,2,3].map(t=>14+((t*13+cx)%22));
+  wrapX(cx-w,w*2,o=>{const x=o+w;rpoly([[x-w,cy],[x+w,cy],[x+w*0.4,cy+w*0.9],[x-w*0.3,cy+w*0.7]],'#141c2c');rr(x-w,cy,w*2,1,'#4a7a9a');
+   for(let t=0;t<4;t++){const tx=x-w*0.6+t*w*0.4,th=tw[t];rr(tx,cy-th,8,th,'#18223a');rpoly([[tx-2,cy-th],[tx+4,cy-th-10],[tx+10,cy-th]],'#18223a');if(t%2)rr(tx+3,cy-th+5,2,3,'#7fe0ff');}});}
+ const mid=bgCanvas();useG(mid);ridge(232,4,4,9,0.5,'#1a2232','#3e5a7a');
+ const pil=Array.from({length:6},(_,i)=>[i*80+R()*20,40+R()*70]);
+ for(const[px,h]of pil)wrapX(px,20,o=>{rr(o,235-h,14,h,'#2a3448');rr(o,235-h,3,h,'#3e4a62');rr(o-3,235-h,20,4,'#34405a');for(let k=6;k<h;k+=9)rr(o+5,235-h+k,4,1,'#1c2436');});
+ wrapX(222,40,o=>{const x=o+18;for(let y=30;y<200;y++){const w=y<56?Math.max(1,Math.round((y-30)/2.6)):10;rr(x-w/2,y,w,1,y%9?'#9aa8bc':'#c8d4e4');rr(x-w/2,y,1,1,'#eef4ff');}
+  for(let y=70;y<190;y+=12)rr(x-1,y,2,5,'#7fe0ff');rr(x-28,196,56,8,'#6a5a2a');rr(x-28,196,56,2,'#ffe8a0');rr(x-4,204,8,24,'#2a1c18');rcirc(x,230,6,'#d6a93a');
+  for(let i=0;i<10;i++)rr(x-30+i*6,228+(i%3),5,8,'#2a3448');});
+ const near=bgCanvas();useG(near);
+ for(let i=0;i<5;i++){const x=i*96+R()*40,L=50+R()*40;wrapX(x,8,o=>{for(let y=0;y<L;y+=4){const dx=(y/4)%2;rr(o+dx,y,3,3,'#2a3040');rr(o+dx,y,1,1,'#5a6a80');}});}
+ for(let i=0;i<4;i++){const x=i*120+R()*50,y=150+R()*40,w=14+R()*12;wrapX(x-w,w*2,o=>{const cx=o+w;rpoly([[cx-w,y],[cx+w,y],[cx+w*0.3,y+w*0.8],[cx-w*0.4,y+w*0.6]],'#0e1420');rr(cx-w,y,w*2,1,'#7fe0ff');rr(cx-2,y+3,4,2,'#7fe0ff');});}
+ for(let i=0;i<5;i++){const x=i*96+R()*30;wrapX(x,20,o=>{for(let k=0;k<3;k++){const cx=o+6+k*5,h=12+k*6+(k===1?8:0);rpoly([[cx-3,235],[cx,235-h],[cx+3,235]],k===1?'#7fe0ff':'#3a8aa0');rr(cx,235-h+3,1,h-6,'#dff6ff');}});}
+ return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.36},{c:near,par:0.66}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(11);for(let y=3;y<35;y+=8)for(let x=0;x<128;x+=16){const o=((y/8)|0)%2?8:0;rr(x+o,y,16,8,'#2e3646');rr(x+o,y,16,1,'#4a5670');rr(x+o,y,1,8,'#1c2230');}
+  rr(0,0,128,3,'#d6a93a');rr(0,0,128,1,'#ffe8a0');for(let i=0;i<6;i++)rr(R()*120,10+R()*20,3,1,'#7fe0ff');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,7,'#3a4458');rr(0,0,32,1,'#ffe8a0');rr(0,1,32,1,'#d6a93a');rr(0,6,32,1,'#1a2030');rr(14,3,4,2,'#7fe0ff');return c;}});
+const _v12env=updateEnv;updateEnv=function(){if(!run||run.theme!==5){_v12env();return;}const cx=G.camX;
+ if(G.t%3===0)env.push({k:'dust',x:cx+rand(0,W),y:FLOOR+rand(-6,6),vx:rand(-0.2,0.2),vy:-rand(0.4,1.1),life:randi(160,260),col:pick(['#7fe0ff','#ffd77a','#bfe8ff']),sz:pick([2,2,3])});
+ if(G.t%10===0)env.push({k:'ash',x:cx+rand(0,W),y:-6,vx:rand(0.2,0.7),vy:rand(0.4,0.9),life:480,col:'#dfe8f0'});
+ for(const p of env){p.x+=p.vx;p.y+=p.vy;p.life--;}env=env.filter(p=>p.life>0&&p.y<FLOOR+10);if(env.length>500)env.splice(0,env.length-500);};
+
+/* ---- 9. 고대 던전 ---- */
+const ANC_CURSE=[{k:'iron',n:'강철 피부',d:'적 체력 +40%'},{k:'fury',n:'광폭',d:'적 공격력 +25%'},{k:'swift',n:'가속',d:'적 이동 속도 +30%'},{k:'none',n:'고요',d:'변수 없음'}];
+function startAncient(){ensureV12();if(save.chapter<5&&save.level<35){toast('🏛️ 고대 던전은 스토리 5장 클리어 또는 Lv35부터 입장할 수 있습니다');return;}startRun('ancient',{theme:5});}
+const ancLabel=()=>`🏛️ 천공의 폐성 ${run.floor}/3층 · ${ROOM_NAME[run.rooms[run.cur].type]} · ☠ ${run.anc.curse.n}${run.ruinT>0?` · ⏳ 봉인의 시련 ${Math.ceil(run.ruinT/60)}초`:''}`;
+const _v12nf=newFloor;newFloor=function(){const A=run&&run.mode==='ancient';if(A){run.theme=5;run.anc={curse:pick(ANC_CURSE)};run.lbl=ancLabel;}
+ _v12nf();if(A){run.scale*=1+(run.floor-1)*0.15;toast(`☠ 이번 층의 고대 변수 — ${run.anc.curse.n}: ${run.anc.curse.d}`);}};
+const _v12ar=addRuin;addRuin=function(rooms){if(run&&run.mode==='ancient'){const c=rooms.filter(r=>r.type==='combat'&&r.dist>=1);for(let k=0;k<2&&c.length;k++)c.splice(randi(0,c.length-1),1)[0].type='ruin';return;}_v12ar(rooms);};
+const _v12pp=populate;populate=function(r){if(run&&run.mode==='ancient'&&r.type==='boss'){spawnBoss(ANC_IDX[Math.min(2,run.floor-1)]);return;}_v12pp(r);};
+const _v12se=spawnEnemy;spawnEnemy=function(t,x,o){const e=_v12se(t,x,o);if(e&&run&&run.mode==='ancient'&&run.anc&&e.maxHp<1e8){const k=run.anc.curse.k;
+ if(k==='iron')e.maxHp=e.hp=Math.round(e.maxHp*1.4);else if(k==='fury')e.atk*=1.25;else if(k==='swift')e.spd*=1.3;}return e;};
+const _v12obd=onBossDefeated;onBossDefeated=function(){if(!run||run.mode!=='ancient'){_v12obd();return;}
+ save.rec.ancBest=Math.max(save.rec.ancBest||0,run.floor);writeSave(true);
+ if(run.floor>=3)G.after={t:120,fn:()=>{save.rec.anc=(save.rec.anc||0)+1;if(save.settings.diff>=1)hallAdd(`🏛️ 천공의 폐성 완전 공략 (${DIFF[save.settings.diff].n} · ${CLASSES[save.cls].name})`);writeSave(true);showResult(true,'🏛️ 천공의 폐성 완전 공략 — 태고의 검신을 베었다!');}};
+ else G.after={t:90,fn:()=>{addExitDoor('더 깊은 층으로');openReward('boss');toast(`🚪 출구가 열렸습니다 — 문 앞에서 ${keyName(bind('up'))}`);}};};
+const _v12ex=onExitDoor;onExitDoor=function(){if(run&&run.mode==='ancient'&&run.floor<3){run.floor++;P.potions=Math.min(save.potionMax,P.potions+1);newFloor();writeSave();return;}_v12ex();};
+/* 봉인의 시련: 고대 던전 유적 방은 45초 제한 */
+const _v12er=enterRoom;enterRoom=function(id,from){_v12er(id,from);const r=run&&run.rooms&&run.rooms[id];
+ if(r&&run.mode==='ancient'&&r.type==='ruin'&&!r.cleared){run.ruinT=45*60;run.ruinFail=false;toast('🏛️ 봉인의 시련 — 45초 안에 수호자를 쓰러뜨리면 비문 확률 60%');}};
+const _v12uw=updateWorld;updateWorld=function(){_v12uw();if(run&&run.mode==='ancient'&&run.rooms&&run.ruinT>0&&P&&!P.dead){const r=run.rooms[run.cur];
+ if(r.type!=='ruin'||r.cleared)run.ruinT=0;else if(--run.ruinT<=0){run.ruinFail=true;addFx({kind:'banner',txt:'⏳ 봉인의 시련 실패 — 비문을 얻을 수 없다',col:'#ff7070',life:100});sfx('deny');}}};
+
+/* ---- 10. 유적 연구: 비문 12개 ---- */
+const STK={atk:'공격력',hp:'최대 HP',crit:'치명타',critDmg:'치명 피해',def:'피해 감소',cdr:'스킬 쿨감',ult:'궁극기 충전',gold:'골드 획득',boss:'보스 피해'};
+const STELE=[
+ {id:'st1',n:'제1비문 · 검의 기원',k:'atk',v:0.02,lore:'태초에 하늘을 가르는 한 줄기 빛이 있었고, 사람들은 그것을 검이라 불렀다.'},
+ {id:'st2',n:'제2비문 · 첫 대장장이',k:'hp',v:0.03,lore:'하늘에서 떨어진 쇳덩이를 처음 두드린 자는 사흘 밤낮 불을 꺼뜨리지 않았다.'},
+ {id:'st3',n:'제3비문 · 매의 눈',k:'crit',v:0.015,lore:'칼은 손이 아니라 눈으로 먼저 벤다.'},
+ {id:'st4',n:'제4비문 · 성벽의 노래',k:'def',v:0.015,lore:'무너지지 않는 성은 없다. 다만 무너지지 않으려는 사람이 있을 뿐.'},
+ {id:'st5',n:'제5비문 · 호흡',k:'cdr',v:0.02,lore:'들이쉴 때 거두고, 내쉴 때 벤다. 검은 숨과 함께 돈다.'},
+ {id:'st6',n:'제6비문 · 급소',k:'critDmg',v:0.05,lore:'모든 강자에게는 단 한 치의 빈틈이 있다.'},
+ {id:'st7',n:'제7비문 · 투지',k:'ult',v:0.05,lore:'쓰러진 횟수보다 한 번 더 일어선 자가 검을 이어받았다.'},
+ {id:'st8',n:'제8비문 · 갈라진 유파',k:'atk',v:0.02,lore:'검신의 제자 일곱이 각자의 길을 걸으니, 그것이 유파의 시작이었다.'},
+ {id:'st9',n:'제9비문 · 천공의 성',k:'hp',v:0.03,lore:'그들은 땅의 다툼을 피해 성을 하늘로 띄웠다. 그러나 다툼은 성 안에서 자랐다.'},
+ {id:'st10',n:'제10비문 · 금의 저주',k:'gold',v:0.05,lore:'검을 팔아 금을 산 자는, 결국 금으로 검을 살 수 없었다.'},
+ {id:'st11',n:'제11비문 · 봉인',k:'boss',v:0.03,lore:'검신은 스스로를 성의 가장 깊은 곳에 봉하며 말했다. "나를 넘는 자에게 하늘을 주겠다."'},
+ {id:'st12',n:'제12비문 · 검성',k:'atk',v:0.03,lore:'가장 강한 자가 아니라, 끝까지 검을 놓지 않은 자. 그것이 검성이다.'}];
+const steleN=()=>STELE.filter(t=>save.stele&&save.stele[t.id]).length;
+TITLES.push({n:'천공을 벤 자',cond:()=>(save.rec.anc||0)>=1,cd:'고대 던전 공략'},{n:'고대의 계승자',cond:()=>steleN()>=12,cd:'비문 12개'});
+const _v12cs=calcStats;calcStats=function(){const r=_v12cs();if(G.mode==='pvp'||!save.stele)return r;const s={},n=steleN();
+ for(const t of STELE)if(save.stele[t.id])s[t.k]=(s[t.k]||0)+t.v;if(n>=8)s.boss=(s.boss||0)+0.05;if(n>=12)s.atk=(s.atk||0)+0.05;
+ if(s.atk)r.atk*=1+s.atk;if(s.hp)r.maxHp=Math.round(r.maxHp*(1+s.hp));if(s.crit)r.crit=Math.min(0.9,r.crit+s.crit);if(s.critDmg)r.critDmg+=s.critDmg;
+ if(s.def)r.def+=s.def;if(s.cdr)r.cdr+=s.cdr;if(s.ult)r.ultGain+=s.ult;if(s.gold)r.gold+=s.gold;if(s.boss)r.boss+=s.boss;return r;};
+const _v12rl=ruinLoot;ruinLoot=function(){ensureV12();const anc=run&&run.mode==='ancient',fail=anc&&run.ruinFail;_v12rl();const n=steleN();
+ if(anc&&!fail){ensureV9();const sh=Math.round(randi(3,5)*(n>=4?1.5:1));save.shards+=sh;save.marks+=1;toast(`🏛️ 봉인 해제 — 💠 +${sh} · 🔱 +1`);}else if(n>=4){ensureV9();save.shards+=1;}
+ const left=STELE.filter(t=>!save.stele[t.id]);
+ if(left.length&&!fail&&Math.random()<(anc?0.6:0.25)){const t=pick(left);save.stele[t.id]=1;addFx({kind:'banner',txt:`📜 비문 발견 — ${t.n}`,col:'#7fe0ff',life:140});sfx('ult');}
+ writeSave(true);};
+function showStele(){ensureV12();G.back=showHub;const n=steleN();
+ const cards=STELE.map(t=>{const h=save.stele[t.id];return`<div class="card ${h?'':'lock'}" style="padding:8px"><div class="ct" style="font-size:13px;color:${h?'#7fe0ff':'#9a96b5'}">📜 ${h?t.n:'??? — 미해독 비문'}</div><div class="kv sm">${h?t.lore:'고대 유적의 봉인 상자에서 발견할 수 있다.'}</div><div class="kv sm" style="color:#ffd77a">${STK[t.k]} +${(t.v*100).toFixed(1)}%</div></div>`;}).join('');
+ const set=[[4,'유적 상자 💠 파편 보상 증가'],[8,'보스 피해 +5%'],[12,'공격력 +5% · 칭호 「고대의 계승자」']].map(([k,s])=>`<div class="kv ${n>=k?'':'muted'}">${n>=k?'✔':'○'} ${k}개 — ${s}</div>`).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>📜 유적 연구 — 비문 ${n} / ${STELE.length}</h2><button class="btn" onclick="showHub()">← 거점</button></div>
+ <div class="row" style="flex:1;min-height:0;align-items:stretch;gap:12px"><div class="scroll" style="flex:1"><div class="grid3">${cards}</div></div>
+ <div class="card col" style="width:280px"><div class="sec" style="margin-top:0">해독 보너스</div>${set}<div class="sec">비문 얻는 법</div><div class="kv sm muted">원정 · 캠페인의 고대 유적: 25%<br>🏛️ 고대 던전 유적 (봉인의 시련 성공): 60%<br>비문 효과는 영구적이며 모든 직업에 적용됩니다 (결투 제외).</div></div></div></div>`);}
+
+/* ── ③ 강호편을 1장 앞으로 (v12b) ── */
+/* ===================== 60. v12b: 강호편을 1장 앞으로 — 강호의 정점 너머에 망령왕 ===================== */
+const FAC_NEW=[
+ {th:0,sc:0.75,gold:250,xp:250,soul:3,hp:2000,atk:14,lv:5, def:0.04},
+ {th:0,sc:0.85,gold:300,xp:350,soul:3,hp:3000,atk:15,lv:6, def:0.05},
+ {th:1,sc:0.95,gold:350,xp:450,soul:4,hp:4500,atk:16,lv:7, def:0.06},
+ {th:2,sc:1.05,gold:400,xp:550,soul:4,hp:5500,atk:17,lv:8, def:0.07},
+ {th:0,sc:1.15,gold:500,xp:700,soul:5,hp:7000,atk:18,lv:10,def:0.08},
+ {th:4,sc:1.25,gold:700,xp:900,soul:6,hp:8500,atk:19,lv:11,def:0.09}];
+FAC.forEach((f,i)=>{const n=FAC_NEW[i],B=BOSSES[f.bi];
+ Object.assign(f,{ch:0,th:n.th,sc:n.sc,gold:n.gold,xp:n.xp,soul:n.soul});
+ Object.assign(B,{hp:Math.round(n.hp/DIFF[1].hp),atk:n.atk,lv:n.lv,def:n.def,lootIdx:i<4?0:1});});
+BOSSES[FAC[4].bi].patterns=['combo','dash','teleport','combo'];
+BOSSES[FAC[5].bi].patterns=['combo','slam','dash','summon','homing'];
+Object.assign(BOSSES[0],{atk:22,lv:13});
+
+/* 대사 · 구성: 세력끼리 꼬리를 물고, 마지막은 왕국으로 */
+FAC[1].outro=[['흑랑 독고','쳇… 우리 산채에 네 목값을 건 놈이 있었다. 혈수문 살수들이 벌써 움직였을걸.']];
+Object.assign(FAC[2],{
+ d:'왕국 외곽 폐광촌에 숨어든 살수 문파. 돈만 주면 누구든 벤다.',
+ intro:[['','버려진 폐광촌. 주인 잃은 수레 위로 붉은 손자국이 찍혀 있다.'],['혈수문 살수','값은 이미 받았다. 네 목은 흑랑채가 걸었지.']],
+ waves:[{e:['blood','blood']},{e:['blood','xbow','thug']},{e:['blood','blood','xbow','thug']},{boss:1,talk:[['혈수 사도','이류라 깔보지 마라. 이 손에 씻긴 피가 네 칼보다 붉다.']]}],
+ outro:[['혈수 사도','의뢰인이 누군지 알고 싶나? 수도원의 독사들한테 물어봐라…']]});
+Object.assign(FAC[3],{
+ d:'왕국 외곽의 버려진 수도원에 똬리를 튼 독술 문파. 바늘 하나에 장정 셋이 쓰러진다.',
+ intro:[['','버려진 수도원. 깨진 색유리 사이로 초록빛 연기가 새어 나온다.'],['독사방 독침수','쉿… 숨을 크게 쉬면 독이 빨리 돈다네.']],
+ waves:[{e:['viper','viper']},{e:['viper','blood','bandit']},{e:['viper','viper','blood','thug']},{boss:1,talk:[['만독 사옥란','검을 든 자가 왕국으로 간다? 귀검대가 가만두지 않을 텐데… 그 전에 내 독부터 맛보렴.']]}],
+ outro:[['만독 사옥란','귀검대… 검을 쥔 자는 모두 베는 미치광이들이야. 너도 곧 만나게 될 거야…']]});
+Object.assign(FAC[4],{
+ d:'검성의 부름에 미쳐 버린 검객 집단. 검을 쥔 자는 누구든 베어 이름을 지운다.',
+ intro:[['','달빛 아래 갈대밭. 얼굴 없는 검객들이 길을 막아선다.'],['귀검대 검귀','…검을 버려라. 그 검이 너를 미치게 할 테니.']],
+ waves:[{e:['gwigeom']},{e:['gwigeom','xbow','viper']},{e:['gwigeom','gwigeom','blood']},{boss:1,talk:[['귀검 무영','검성의 부름을 들었나? 우리도 들었다. 그래서 칼끝을 서로에게 겨눴지.']]}],
+ outro:[['귀검 무영','혈월곡의 맹주는… 그 부름을 거스른 유일한 자다. 가 보아라.']]});
+Object.assign(FAC[5],{
+ d:'강호의 모든 사파를 하나로 묶은 맹주의 총단. 혈월곡의 주인은 강호에서 가장 강한 사내다.',
+ intro:[['','혈월곡. 핏빛 달 아래 사파의 깃발이 펄럭인다.'],['혈마 철광','단철방부터 귀검대까지… 내 아이들을 전부 베고 왔군.'],['혈마 철광','좋다. 강호의 정점이 어디인지 보여 주마.']],
+ waves:[{e:['gwigeom','blood','thug']},{e:['gwigeom','gwigeom','viper','bandit']},{boss:1,talk:[['혈마 철광','절정의 벽이 얼마나 높은지, 몸으로 배워라!']]}],
+ outro:[['혈마 철광','하… 하하… 강호에서 나를 넘은 놈은 네가 처음이다.'],
+  ['혈마 철광','그러니 알려 주지. 십 년 전, 사파맹 삼천이 왕국 성문으로 쳐들어갔다.'],
+  ['혈마 철광','돌아온 건… 나 하나였다. 그 왕좌엔 아직 망령왕이 앉아 있다.'],
+  ['','강호의 정점을 넘었다. 이제부터는 전설의 영역이다.']]});
+STORY[0].intro.unshift(['','사파맹 삼천이 돌아오지 못한 성문. 강호의 칼이 닿지 않는 곳에, 왕이 아직 앉아 있다.']);
+
+/* ── ④ 1단계 · 세계관 (v13 수정판) ── */
+/* ===================== 61. 완전판 1단계 (v13 수정판): 1부 혈천교편(무협) · 2부 마왕강림(인외마경) ===================== */
+/* ---- 마왕강림 플래그 ---- */
+function isDemon(){return !!(save.demon||save.chapter>=1||(save.fac&&save.fac[5]));}
+
+/* ---- 인물 ---- */
+const NPCS={
+ keeper:{name:'사당지기',title:'동방의 노검객',desc:'혈천교를 쫓아 동방에서 건너온 늙은 검객. 혈마의 진짜 목적을 끝내 꿰뚫어 보지 못한 것을 평생의 한으로 여긴다.',met:()=>true},
+ eden:{name:'에델',title:'견습 성기사',desc:'벨카의 마지막 제자. 단장의 명으로 검의 사당을 지키며, 처음부터 주인공의 곁에서 싸운다.',met:()=>true},
+ garret:{name:'가렛',title:'용병대 「은빛 방패」 대장',desc:'돈을 받고 싸우지만 약속은 목숨보다 무겁게 여기는 용병. 흑랑채에 붙잡힌 대원들을 구해 준 빚을 갚으려 합류했다.',met:()=>!!(save.fac&&save.fac[1])||save.chapter>=1},
+ belka:{name:'벨카',title:'성기사단장',desc:'혈천교와의 싸움에서 기사단을 이끈 단장. 마왕강림 뒤 기사단이 마기에 무너질 때 홀로 정신을 지켰다.',met:()=>!!(save.fac&&save.fac[3])||save.chapter>=1},
+ sylva:{name:'실바',title:'세계수의 드루이드',desc:'남쪽 대밀림에 뻗은 세계수 곁가지를 지키는 수호자. 마기를 정화하는 법을 아는 마지막 사람.',met:()=>save.chapter>=2}};
+
+/* ---- 프롤로그: 교류의 시대 ---- */
+PROLOGUE.length=0;PROLOGUE.push(
+ ['','서쪽 대륙 아르디아. 동방과의 뱃길이 열리고, 비단과 차와 검술이 바다를 건너 오가던 교류의 시대.'],
+ ['','아르디아에서는 천하제일의 검객에게 "검성(劍聖)"의 칭호를 내렸다. 백 년 전 마지막 검성은 옛 왕국과 함께 심연의 마왕을 봉인하고 사라졌다.'],
+ ['','그 뱃길을 타고, 동방에서 쫓겨난 사교 혈천교(血天敎)가 건너왔다. 교주 혈마는 사파를 부리며 아르디아 곳곳에 뿌리를 내렸다.'],
+ ['사당지기','…깨어났구먼. 자네도 그 검의 부름을 들은 게지.'],
+ ['사당지기','나는 혈천교를 쫓아 동방에서 건너온 늙은이일세. 놈들은 벌써 항구와 장터에 뿌리를 내렸네.'],
+ ['에델','깨어나셨군요! 저는 성기사단의 에델이에요. 단장님 명으로 이 사당을 지키고 있어요.'],
+ ['에델','혈천교가 동방의 사파들을 부려 마을을 짓밟고 있어요. 기사단도 손이 모자라요… 도와주실 거죠?'],
+ ['사당지기','준비가 되면 떠나게. 혈천교를 막을 칼은… 지금은 자네뿐일세.']);
+
+/* ---- 서장: 사람만 등장 ---- */
+if(typeof PRO!=='undefined'){
+ Object.assign(PRO[0],{d:'혈천교에 고용된 왈패들이 사당 앞마당까지 쳐들어왔다.',
+  intro:[['에델','혈천교에 돈을 받은 왈패들이에요! 기본기만 지키면 이길 수 있어요.']],
+  outro:[['에델','좋아요! 다음은 상대의 칼끝을 읽는 법이에요.']],
+  waves:[{e:['thug'],tip:K=>`[${K('left')}/${K('right')}] 이동 · [${K('attack')}] 연타로 3연격`},
+   {e:['thug','thug'],tip:K=>`[${K('jump')}] 2단 점프 · 공중에서 [${K('down')}]+[${K('attack')}] 낙하 베기`},
+   {e:['bandit','thug'],tip:()=>'날랜 산적은 먼저 파고든다 — 거리를 재며 베어라'}]});
+ Object.assign(PRO[1],{d:'붉게 깜빡이는 순간이 기회다. 패링과 회피를 익혀라.',
+  intro:[['에델','휘두르기 직전에 칼이 붉게 빛나요. 그 순간 칼을 맞대세요!']],
+  outro:[['사당지기','좋아. 튕겨낸 적은 비틀거리지. 그 틈이 곧 승리일세.']],
+  waves:[{e:['thug'],tip:K=>`적이 붉게 깜빡이면 [${K('parry')}] 패링 — 튕겨낸 적은 비틀거린다`},
+   {e:['thug','bandit'],tip:K=>`[${K('dodge')}] 회피는 잠깐 무적 — 대신 노란 기력을 쓴다`},
+   {e:['xbow','thug'],tip:()=>'쇠뇌 화살은 칼로 베거나 패링으로 되돌릴 수 있다'}]});
+ Object.assign(PRO[2],{n:'서장 3 · 사당 습격',d:'혈천교 선봉대장이 사당을 노린다. 배운 모든 것을 써라.',
+  intro:[['','한밤중, 사당 문이 부서지는 소리. 붉은 두건의 무사들이 횃불을 들고 들이닥친다.'],['혈천교 선봉대장','검의 사당이 여기였군. 교주님께서 이곳의 검을 원하신다.'],['에델','물러서지 않아요! 같이 막아요!']],
+  outro:[['사당지기','놈들이 사당의 검을 노렸다… 혈마가 원하는 건 검성의 칭호만이 아니야.'],['사당지기','거점의 [전직]에서 자네의 길을 고르게. 그리고 혈천교의 하수인들부터 하나씩 끊어 내게.']],
+  waves:[{e:['thug','bandit','xbow'],tip:K=>`[${K('potion')}] 물약으로 회복 — 체력 관리도 실력이다`},
+   {e:['thug'],elite:true,name:'혈천교 선봉대장',hpMul:2.5,tip:()=>'⚔ 선봉대장 — 내려찍기는 패링, 연속 공격은 회피'}]});}
+
+/* ---- 1부: 혈천교편 ---- */
+if(typeof FAC!=='undefined'){
+ FAC[0].d='혈천교에 돈을 받고 장터 대장간을 차지한 왈패 무리. 철퇴 한 자루로 동네를 주무른다.';
+ FAC[0].intro=[['','항구 마을의 장터. 동방 상인들의 노점이 부서져 있다.'],['단철방 졸개','어이, 칼 찬 애송이! 이 장터는 혈천교 어르신들께 상납하는 우리 구역이라고.']];
+ FAC[0].waves=[{e:['thug','thug']},{e:['thug','thug','bandit']},{e:['thug','thug','thug','xbow']},{boss:1,talk:[['철퇴 마삼','내 아우들을 건드려? 네 칼을 엿가락처럼 휘어 주마!']]}];
+ FAC[0].outro=[['철퇴 마삼','크윽… 혈천교 놈들한테 받은 돈이 아깝군…'],['철퇴 마삼','성 밖 산길은 흑랑채 구역이다. 그놈들도 혈천교 끄나풀이지…']];
+ FAC[1].outro=[['흑랑 독고','쳇… 혈천교가 네 목에 값을 걸었다. 혈수문 살수들이 벌써 움직였을걸.'],
+  ['가렛','어이, 거기 검객! 덕분에 묶여 있던 우리 대원들이 풀려났군. 용병대 「은빛 방패」의 가렛이다.'],
+  ['가렛','빚은 갚는 게 용병의 법도지. 혈수문 놈들 근거지는 폐광촌이야. 길은 내가 안내하지.']];
+ FAC[2].d='혈천교의 살수술을 이어받은 동방 살수 문파의 아르디아 지부.';
+ FAC[3].outro=[['만독 사옥란','귀검대… 교주님 직속의 미치광이들이야. 너도 곧 만나게 될 거야…'],
+  ['','수도원 밖, 은빛 갑주의 기사들이 말을 몰고 다가온다.'],
+  ['성기사단장 벨카','에델, 무사했구나. 그리고 네가 사당의 검객이군. 혈천교 지부를 셋이나 무너뜨렸다고 들었다.'],
+  ['성기사단장 벨카','귀검대와 총단은 기사단도 쉽게 손대지 못한 곳이다. 우리가 길을 열겠다. 칼끝은 네가 맡아라.']];
+ FAC[4].d='혈마 직속의 암살단. 피의 저주가 섞인 검술로 이름을 버린 검객들.';
+ FAC[4].outro=[['귀검 무영','교주님은… 우리 모두를 제물로 쓸 생각이셨다… 그래도 상관없었지…'],['가렛','제물? 무슨 소리야. 어이, 이거 냄새가 안 좋은데.']];
+ FAC[5].n='혈천교 — 혈월곡 총단';FAC[5].tier='절정';
+ FAC[5].d='혈천교의 본거지. 교주 혈마가 동방에서 데려온 정예와 함께 기다린다.';
+ FAC[5].intro=[['','혈월곡. 핏빛 달 아래 혈천교의 깃발이 펄럭인다.'],['혈마 철광','단철방부터 귀검대까지… 내 아이들을 전부 베고 왔군.'],
+  ['혈마 철광','기사단과 용병까지 끌고 왔나. 좋다. 관객이 많을수록 의식은 빛나는 법이지.'],['혈마 철광','와라, 검의 부름을 받은 자여. 나를 베어 보아라.']];
+ FAC[5].outro=[['혈마 철광','크… 크하하… 잘 베었다. 정말 잘 베었어.'],
+  ['혈마 철광','봉인을 여는 마지막 열쇠가 무엇인지 아느냐? 이 땅 최강자의 피다.'],
+  ['혈마 철광','나를 벤 순간… 네 칼이 문을 열었다.'],
+  ['','혈마의 피가 땅속으로 스며든다. 대지가 울고, 하늘이 검붉게 물든다.'],
+  ['사당지기','이럴 수가… 놈은 처음부터 죽을 생각이었어!'],
+  ['','백 년 묵은 심연의 봉인이 깨졌다. 그날 밤, 아르디아에 마왕군이 쏟아졌다.']];
+ const BH=BOSSES[FAC[5].bi];if(BH){BH.title='혈천교주';BH.desc='동방에서 건너온 혈천교의 교주. 자신의 죽음으로 마왕의 봉인을 여는 의식을 완성했다.';}
+ FAC.forEach(f=>{const B=BOSSES[f.bi];if(B&&f.tier)B.label=`1부 · ${f.tier} · ${f.n.split(' — ')[0]}`;});
+ /* 혈마 첫 토벌 → 마왕강림 */
+ const _v13scl=stageClear;stageClear=function(){const f5=run&&run.stg&&run.stg.kind==='fac'&&run.stg.i===5&&!save.demon;_v13scl();
+  if(f5){save.demon=1;writeSave(true);addFx({kind:'banner',txt:'⚠ 마왕강림 — 아르디아에 마물이 들끓기 시작했다',col:'#ff3040',life:160});G.flash={col:'#ff3040',t:20};shake(14);sfx('ult');}};}
+
+/* ---- 마왕강림 전: 마물 → 인간형 적, 대보스 → 세력 중간보스 (훈련장 제외) ---- */
+const HUMAN_SUB={slime:'thug',bat:'bandit',skeleton:'blood',archer:'xbow',oni:'thug',caster:'viper',fallen:'gwigeom'};
+const _v13se=spawnEnemy;spawnEnemy=function(t,x,o){
+ if(!isDemon()&&G.mode!=='training'&&HUMAN_SUB[t]&&ENEMIES[HUMAN_SUB[t]]){if(t==='oni')o=Object.assign({},o||{},{elite:true});t=HUMAN_SUB[t];}
+ return _v13se(t,x,o);};
+const _v13sb=spawnBoss;spawnBoss=function(idx){
+ if(!isDemon()&&G.mode!=='training'&&idx<5&&typeof FAC!=='undefined'&&FAC[idx])idx=FAC[idx].bi;
+ return _v13sb(idx);};
+if(typeof campStat==='function'){const _v13cs=campStat;campStat=function(s){const r=_v13cs(s);if(s.k==='ch'&&!isDemon())r.open=false;return r;};}
+const _v13sc=startChapter;startChapter=function(i){if(!isDemon()){toast('🔒 2부 · 마왕강림 — 혈천교 총단의 혈마를 쓰러뜨리면 열립니다');return;}_v13sc(i);};
+
+/* ---- 2부: 마왕강림 ---- */
+[{title:'잊혀진 왕국',desc:'백 년 전 검성과 함께 마왕과 싸우다 무너진 옛 왕국. 차오른 마기에 망령들이 깨어났다.',
+  intro:[['','봉인이 깨진 이튿날. 백 년 동안 잠들어 있던 옛 왕국의 폐허에서 녹슨 깃발이 일어선다.'],['에델','이 왕국… 백 년 전 검성님과 함께 마왕과 싸웠다는 아르디스 왕가예요.'],['???','…또 마기가 오는구나.'],['망령왕 아르디스','검의 부름을 받은 자여… 물러가라. 내 안의 혼돈이… 너를 벨 것이다.']],
+  outro:[['망령왕 아르디스','…가벼워졌다. 내 안에서 울던 혼돈의 검이 잠잠해졌구나.'],['망령왕 아르디스','백 년을 기다렸다. 검성이 돌아오기를. 그 맹세 하나로 이 몸이 썩지 않았지.'],['망령왕 아르디스','붉은 광산으로 가라. 마왕군이 대지의 혈관을 파헤쳐 칼을 벼리고 있다.']]},
+ {title:'붉은 광산',desc:'명검의 재료인 적철광이 잠든 광산. 마왕군의 노역 마물들이 광맥을 뜯어내고 있다.',
+  intro:[['','광부들의 노랫소리는 끊긴 지 오래다. 오니들이 쇠사슬을 끌며 갱도를 판다.'],['실바','멈춰요! 당신이 혈마를 벤 검객이죠? 저는 세계수의 드루이드, 실바예요.'],['실바','저 깊은 곳의 거신은 이 땅의 맥이에요. 마왕군이 혈관을 뜯어내서 고통에 미쳐 버린 거예요.'],['실바','쓰러뜨려 주세요. 죽이는 게 아니라… 다시 잠들게 하는 거예요.']],
+  outro:[['','거신이 무너지며 대지의 열기가 가라앉는다. 그 심장부에서 부러진 칼날 조각이 굴러 나왔다.'],['에델','이 문장… 성기사단의 것이에요! 단장님 성검의 조각이에요… 요새에 무슨 일이?'],['실바','세계수 곁가지가 아직 남쪽 대밀림에서 마기를 막고 있어요. 언젠가 그곳에도 와 주세요.']]},
+ {title:'성검의 시험',desc:'마기에 무너진 성기사단의 요새. 최후의 단장이 성검을 이을 자를 기다린다.',
+  intro:[['에델','혈천교와 싸울 땐 함께였던 형제들이… 마기에 먹혀 버렸어요.'],['성기사단장 벨카','에델, 살아 있었구나. 그리고 너… 혈마를 벤 자.'],['성기사단장 벨카','네 탓이 아니다. 놈은 처음부터 그걸 노렸으니. 하지만 문을 닫는 것도 네 칼이어야 한다.'],['성기사단장 벨카','네가 이 성검을 이을 자격이 있는지 시험하겠다. 죽일 생각으로 와라. 나는 그러지 않을 테니.']],
+  outro:[['성기사단장 벨카','…됐다. 시험은 끝났다.'],['성기사단장 벨카','성검전설(聖劍傳說). 검이 아니라 맹세를 이어받는 기술이다. 마왕의 마기는 오직 이 빛으로만 벗겨진다.'],['성기사단장 벨카','심연으로 가라. 그리고 에델… 이 사람을 부탁한다.'],['에델','네, 단장님!']]},
+ {title:'마왕의 심연',desc:'깨진 봉인이 숨 쉬는 대지의 균열. 마왕 바르그가 마지막 자물쇠에 반쯤 묶인 채 군세를 부린다.',
+  intro:[['심연의 마왕 바르그','성검의 냄새로군. 그 고지식한 기사 녀석이 기어이 후계를 찾았나.'],['심연의 마왕 바르그','혈천교 교주란 벌레가 제 피로 문을 열어 주더군. 날 부릴 수 있다고 믿었겠지… 크크.'],['심연의 마왕 바르그','검성의 자물쇠가 아직 날 반쯤 묶고 있지만, 너 하나 상대하기엔 충분하다. 마왕의 품격을 보여 주마.']],
+  outro:[['심연의 마왕 바르그','크하하… 이 몸을 베어도 끝이 아니다.'],['심연의 마왕 바르그','마지막 자물쇠는 검성 녀석 그 자체다. 봉인을 쥔 채 검이 되어 버렸지. 그 녀석을 베면 봉인이 풀릴까, 아니면…'],['','심연 가장 깊은 곳, 수천 자루의 검이 꽂힌 언덕으로 가는 길이 열렸다. 하늘에 검은 달이 떠오른다.']]},
+ {title:'검의 종착지',desc:'수천 자루의 검이 꽂힌 언덕. 검은 달 아래, 마지막 자물쇠가 서 있다.',
+  intro:[['','흑월야(黑月夜). 바람이 칼날 사이를 지나며 울음소리를 낸다. 언덕 꼭대기에 한 사람이 서 있다.'],['검귀','오래 기다렸다. 이 밤은 내가 봉인을 붙잡은 그날부터 백 년 동안 끝나지 않았다.'],['검귀','나를 베고, 칭호와 자물쇠를 함께 가져가라. 네 칼이라면 봉인은 다시 굳게 닫힐 것이다.']],
+  outro:[['검귀','…훌륭하다. 이제야 이 칼을 내려놓을 수 있겠군.'],['검귀','기억해라. 검성이란 가장 강한 자가 아니라, 끝까지 검을 놓지 않는 자다.'],['','검은 달이 저물고, 봉인이 다시 닫히는 소리가 대지 깊은 곳에서 울렸다.'],['사당지기','자네가 열고, 자네가 닫았군. 하지만 이미 쏟아진 마물들은 아직 아르디아에 남아 있네.'],['사당지기','검성의 이야기는… 지금부터 시작일세.'],['','— 스토리 캠페인 완료 · 고대 던전과 레이드에서 계속 강해질 수 있습니다 —']]}
+].forEach((s,i)=>Object.assign(STORY[i],s));
+Object.assign(CG_TITLE,{pro:'프롤로그 · 교류의 시대',c0:'2부 제1장 · 잊혀진 왕좌',c2:'2부 제3장 · 성검의 시험',c4:'2부 제5장 · 흑월야'});
+[['백 년의 맹세','백 년 전 검성과 함께 마왕과 싸우다 무너진 옛 왕국의 왕. 마기가 차오르자 망령으로 깨어났다. 맹세를 지키려 하지만, 몸 안으로 파고든 마기 — 혼돈의 검과 싸우고 있다.'],
+ ['대지의 맥','광맥에 깃든 대지의 수호령. 마왕군이 적철 광맥을 뜯어내자 고통 속에 깨어나 폭주했다. 선악이 아니라 분노다.'],
+ ['최후의 성기사단장','혈천교와의 싸움에서 기사단을 이끈 단장. 마왕강림 뒤 기사단이 무너질 때 홀로 정신을 지켰다. 적이 아니라, 성검을 이을 자를 시험하는 자.'],
+ ['마왕군의 주인','백 년 전 봉인된 심연의 마왕. 혈마의 피로 문이 열렸지만, 마지막 자물쇠에 본체가 반쯤 묶여 있다. 혈천교를 벌레라 부르며 경멸한다.'],
+ ['마지막 자물쇠','봉인을 붙잡은 채 검 그 자체가 되어 버린 전대 검성. 백 년 동안 끝나지 않은 검은 달의 밤을 홀로 버텨 왔다.']
+].forEach(([t,d],i)=>Object.assign(BOSSES[i],{title:t,desc:d,label:`2부 · 대보스 · 제${i+1}장`}));
+const _v13ke=killEnemy;killEnemy=function(e){const bk=!!(e&&e.boss&&e.idx===2&&!e.dead);_v13ke(e);
+ if(bk)for(const f of fx)if(f.kind==='banner'&&f.t===0&&/격파!$/.test(f.txt)){f.txt='성검의 시험 — 통과';f.col='#ffe07a';}};
+
+/* ---- 도감 계통 ---- */
+const ED13={
+ slime:'[2부 · 심연의 누출] 깨진 봉인에서 새어 나온 마기가 고인 물에 스며 생긴 점액.',
+ bat:'[2부 · 심연의 누출] 마기에 물든 동굴 박쥐. 공중을 맴돌다 급강하한다.',
+ skeleton:'[2부 · 망국의 언데드] 백 년 전 마왕과 싸우다 쓰러진 옛 왕국의 병사. 공격 직전 붉게 깜빡이니 패링을 노려라.',
+ archer:'[2부 · 망국의 언데드] 옛 왕국 성벽의 궁수. 화살은 베어내거나 패링으로 되돌릴 수 있다.',
+ oni:'[2부 · 마왕군 정규] 적철광을 캐기 위해 끌려 나온 노역 마물. 몽둥이로 땅을 내려쳐 충격파를 일으킨다.',
+ caster:'[2부 · 마왕군 정규] 마왕군의 술사단. 순간이동 직전 보랏빛으로 깜빡일 때 공격하면 끊을 수 있다.',
+ fallen:'[2부 · 마기의 잠식] 마기에 무너진 성기사. 1부에서 함께 싸웠던 형제들이다.',
+ thug:'[1부 · 사파] 혈천교에 고용된 왈패. 철퇴를 휘두른다.',
+ bandit:'[1부 · 사파] 흑랑채 산적. 단검 두 자루로 빠르게 파고든다.',
+ xbow:'[1부 · 사파] 흑랑채의 쇠뇌수. 화살은 패링으로 되돌릴 수 있다.',
+ blood:'[1부 · 혈천교 하수인] 혈수문 살수. 예비 동작이 짧다.',
+ viper:'[1부 · 사파] 독사방의 독침수. 멀리서 독침을 날린다.',
+ gwigeom:'[1부 · 혈천교 직속] 귀검대 검귀. 피의 저주가 섞인 검술을 쓴다.'};
+for(const k in ED13)if(ENEMIES[k])ENEMIES[k].desc=ED13[k];
+
+/* ---- 📜 아르디아 연대기 ---- */
+const _pr13=()=>typeof save.prologue==='number'?save.prologue:3,_fc13=i=>!!(save.fac&&save.fac[i])||save.chapter>=1;
+const CHRON=[
+ {n:'교류의 시대',c:()=>true,t:'동방과 아르디아 사이에 뱃길이 열렸다. 비단과 차, 그리고 검술이 바다를 건넜다. 항구 마을에는 동방 상인과 무인이 드나들었다.'},
+ {n:'검성의 칭호와 옛 왕국',c:()=>true,t:'백 년 전 마지막 검성은 아르디스 왕의 옛 왕국과 함께 심연의 마왕 바르그를 봉인했다. 왕국은 그 전쟁에서 무너졌고, 검성은 돌아오지 않았다.'},
+ {n:'혈천교',c:()=>true,t:'동방에서 쫓겨난 피의 교단. 교류의 뱃길을 타고 건너와 사파를 부리며 아르디아에 뿌리를 내렸다. 교주 혈마의 목적은 아무도 몰랐다.'},
+ {n:'사당 습격',c:()=>_pr13()>=3,h:'서장 3 클리어',t:'혈천교는 검의 사당을 노렸다. 사당지기는 그때 처음 의심했다 — 혈마가 원하는 것은 칭호가 아니라, 봉인 아래의 무언가라고.'},
+ {n:'혈천교의 하수인들',c:()=>_fc13(0),h:'단철방 토벌',t:'단철방, 흑랑채, 혈수문, 독사방. 동방에서 건너온 사파들은 혈천교의 돈과 칼 아래 줄을 섰다.'},
+ {n:'성기사단과 은빛 방패',c:()=>_fc13(3),h:'독사방 토벌',t:'성기사단장 벨카와 용병대장 가렛이 칼끝을 함께했다. 서쪽의 기사와 용병, 동쪽의 노검객이 한 깃발 아래 모였다.'},
+ {n:'혈마의 의식',c:()=>isDemon(),h:'혈천교 총단 토벌',t:'봉인을 여는 마지막 열쇠는 이 땅 최강자의 피였다. 혈마는 스스로를 제물로 삼았고, 그를 벤 칼이 문을 열었다.'},
+ {n:'마왕강림',c:()=>isDemon(),h:'혈천교 총단 토벌',t:'그날 밤 마왕군이 쏟아졌다. 봉인 틈의 하급 마물, 마왕군 정규 군세, 깨어난 옛 왕국의 망령, 마기에 먹힌 기사들. 아르디아는 하룻밤 사이 인외마경이 되었다.'},
+ {n:'백 년의 맹세',c:()=>save.chapter>=1,h:'2부 1장 클리어',t:'아르디스 왕은 "검성이 돌아올 때까지 왕좌를 지킨다"는 맹세 하나로 백 년을 버텼다. 마기가 그 맹세마저 삼키려 했을 때, 새 검객이 혼돈을 베어 냈다.'},
+ {n:'대지의 맥과 세계수',c:()=>save.chapter>=2,h:'2부 2장 클리어',t:'적철 거신은 광맥에 깃든 대지의 수호령이었다. 세계수는 그 맥을 따라 뿌리를 뻗어 마기를 걸러 왔다. 남쪽 대밀림의 곁가지가 살아 있는 한, 대륙은 완전히 물들지 않는다.'},
+ {n:'성검의 맹세',c:()=>save.chapter>=3,h:'2부 3장 클리어',t:'1부에서 함께 싸운 기사들은 마기에 먹혔다. 벨카는 홀로 성검을 붙들었다. 성검전설은 검술이 아니라 맹세다 — 그 빛만이 마왕의 마기를 벗겨 낸다.'},
+ {n:'마지막 자물쇠',c:()=>save.chapter>=4,h:'2부 4장 클리어',t:'봉인에는 자물쇠가 있었다. 전대 검성 자신이다. 그는 봉인을 쥔 채 심연 끝 언덕에 서서 백 년의 밤을 버텨 왔다.'},
+ {n:'흑월야',c:()=>save.chapter>=5,h:'2부 5장 클리어',t:'새 검성의 칼이 백 년의 밤을 끝냈고, 봉인은 다시 닫혔다. 그러나 이미 쏟아진 마물들은 대밀림과 대호수, 울음 동굴 깊은 곳으로 스며들었다. 인외마경은 아직 끝나지 않았다.'}];
+const _ok13=c=>{try{return !!c.c();}catch(e){return false;}};
+function showChronicle(){G.back=showCampaign;const n=CHRON.filter(_ok13).length;
+ const ppl=Object.values(NPCS).map(p=>{const m=_ok13({c:p.met});return`<div class="card ${m?'':'lock'}" style="padding:6px"><div class="ct" style="font-size:13px">${m?`${p.name} <span class="muted sm">${p.title}</span>`:'???'}</div><div class="kv sm">${m?p.desc:'아직 만나지 못한 인물'}</div></div>`;}).join('');
+ const rows=CHRON.map((c,i)=>{const ok=_ok13(c);return`<div class="card ${ok?'':'lock'}" style="padding:8px"><div class="ct" style="font-size:14px">${i+1}. ${ok?c.n:'???'}</div><div class="kv" style="line-height:1.6">${ok?c.t:`<span class="muted">🔒 ${c.h}</span>`}</div></div>`;}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>📜 아르디아 연대기 ${n}/${CHRON.length}</h2><button class="btn" onclick="showCampaign()">← 캠페인</button></div>
+ <div class="row" style="flex:1;min-height:0;align-items:stretch;gap:12px"><div class="scroll col" style="flex:1">${rows}</div>
+ <div class="col scroll" style="width:280px"><div class="sec" style="margin-top:0">인물</div>${ppl}</div></div></div>`);}
+const _v13cp=showCampaign;showCampaign=function(){_v13cp();const h=document.querySelector('#ui .hdr .row');
+ if(h)h.insertAdjacentHTML('afterbegin',`<span class="badge" style="background:${isDemon()?'#a01828':'#3a5a8a'};padding:3px 8px">${isDemon()?'2부 · 마왕강림':'1부 · 혈천교편'}</span><button class="btn" onclick="showChronicle()">📜 연대기</button>`);};
+const _v13hub=showHub;showHub=function(){_v13hub();if(isDemon()&&!save.demonSeen){save.demonSeen=1;writeSave(true);toast('⚠ 마왕강림 — 이제 아르디아 전역에 마물이 출몰합니다. 2부 캠페인이 열렸습니다');}};
+
+/* ---- 버전 표기 ---- */
+const _v13ti=showTitle;showTitle=function(){_v13ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 1단계 · v13';};
+const _v13mn=showMenu;showMenu=function(){_v13mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 1단계 · v13 · 자동 저장 지원';};
+
+/* ── ⑤ 2단계 · 적 개편 (v14) ── */
+/* ===================== 62. 완전판 2단계 (v14): 적 개편 — 1부 인간형 8종 · 2부 마물 강화 · 신규 마물 5종 ===================== */
+/* ---- 팔레트 · 무기 · 리그 ---- */
+PAL.cult={id:'cult',h:'#7a0a14',s:'#e0b088',e:'#111',c:'#5a1018',d:'#300a0e',b:'#d6a93a',l:'#2a0e12',f:'#120406',r:'#c0202a'};
+PAL.cultH={id:'cultH',h:'#4a1016',v:'#0a0a0e',s:'#e0b088',e:'#111',c:'#3a1014',d:'#200608',b:'#d6a93a',l:'#2a0e12',f:'#120406'};
+PAL.monk={id:'monk',h:'#d8a878',s:'#d8a878',e:'#111',c:'#a03020',d:'#6a1a10',b:'#e6c24a',l:'#4a2a20',f:'#1a0c08',r:'#e6c24a'};
+PAL.merc={id:'merc',h:'#6a6e78',v:'#0a0a0e',p:'#3a6ab0',s:'#e0b088',e:'#111',c:'#5a5e68',d:'#34383f',b:'#8a6a3a',l:'#3a3e46',f:'#1a1c20'};
+PAL.ronin={id:'ronin',h:'#1a1418',k:'#3a3428',s:'#e0b088',e:'#111',c:'#4a4a5a',d:'#2a2a36',b:'#8a6a3a',l:'#2a2834',f:'#121016',r:'#8a8a9a'};
+PAL.hex={id:'hex',h:'#3a0610',c:'#2a0408',d:'#160204',b:'#ff4060',l:'#1a0406',f:'#0a0204',s:'#e0b088'};
+PAL.axe={id:'axe',h:'#5a3a1a',s:'#e0a878',e:'#111',c:'#6a4a2a',d:'#4a3018',b:'#2a2a2a',l:'#3a3028',f:'#1a1410',r:'#8a2a1a'};
+PAL.bers={id:'bers',h:'#140808',s:'#c88868',e:'#ff2030',c:'#3a0a0e',d:'#200406',b:'#ff3040',l:'#1e0a0c',f:'#0c0406',r:'#ff3040'};
+PAL.imp={id:'imp',n:'#2a1a10',h:'#c04020',e:'#ffe14d',r:'#f3e6c4',c:'#8e2b22',d:'#5e1b15',b:'#ffb030',l:'#8e2b22',f:'#3d0f0b',s:'#c04020'};
+PAL.wraith={id:'wraith',h:'#2a3a4a',c:'#1a2a3a',d:'#0e1824',b:'#9fe8ff',l:'#1a2a3a',f:'#0a1018',s:'#cfe8ff'};
+PAL.gmite={id:'gmite',c:'#5a3a2a',h:'#4e3222',s:'#4e3222',l:'#3d2418',f:'#2a1810',d:'#3d2418',b:'#ff8a3c',e:'#ff8a3c'};
+PAL.dk={id:'dk',h:'#1a1a22',v:'#0a0a0e',c:'#22222c',d:'#101016',b:'#a01828',l:'#1a1a22',f:'#08080c',s:'#1a1a22',e:'#ff2030'};
+WPN.spear={len:24,wid:1,col:'#c8ccd8',edge:'#ffffff',guard:2,grip:14,gcol:'#5a3a1a',gold:'#8a6a3a'};
+WPN.axe={len:11,wid:4,col:'#9aa0a8',edge:'#e0e4ec',guard:0,grip:6,gcol:'#5a3a1a',gold:'#5a3a1a'};
+WPN.fireorb={orb:true,col:'#ff7a2a'};
+Object.assign(RIGDEF,{
+ cultist:{head:'hood',body:'garb',w:'katana',sw:6,ww:5,skirt:5,flare:2,tails:'scarf'},
+ monk:{head:'novice',body:'garb',w:'novice',sw:7,ww:6,skirt:6,flare:2,tails:'band'},
+ shield:{head:'helmP',body:'armor',w:'sword',sw:8,ww:6,skirt:3,flare:1,tails:'plume'},
+ ronin:{head:'gat',body:'robe',w:'katana',sw:6,ww:5,skirt:7,flare:2,tails:'ribbon'},
+ spear:{head:'helmR',body:'garb',w:'spear',sw:6,ww:5,skirt:4,flare:1},
+ hexer:{head:'hoodG',body:'mrobe',w:'brush',sw:6,ww:6,skirt:11,flare:3,cape:'#2a0408',capeHi:'#ff4060'},
+ axe:{head:'novice',body:'garb',w:'axe',sw:9,ww:7,skirt:2,flare:1,lw:3.2,armw:2.4,tails:'band'},
+ berserk:{head:'hood',body:'garb',w:'greatsword',sw:8,ww:6,skirt:4,flare:2,tails:'scarf',glow:'#ff3040'},
+ imp:{head:'oni',body:'brute',w:'fireorb',s:0.85,sw:8,ww:6,skirt:2,flare:1,float:true,lw:2,armw:1.6},
+ wraith:{head:'hoodG',body:'mrobe',w:'rust',sw:6,ww:6,skirt:13,flare:5,float:true,cape:'#14223a',capeHi:'#9fe8ff',tatter:true,glow:'#9fe8ff'},
+ golemite:{head:'golemH',body:'brute',w:'club',s:1.15,sw:11,ww:8,skirt:2,flare:1,lw:3.6,armw:3},
+ deathknight:{head:'helmR',body:'armor',w:'greatsword',sw:9,ww:6,skirt:5,flare:2,cape:'#1a0408',capeHi:'#a01828',glow:'#ff2030'}});
+['cultist','monk','shield','ronin','spear','hexer','axe','berserk','imp','wraith','golemite','deathknight'].forEach(k=>ERIG[k]=k);
+
+/* ---- 적 데이터 ---- */
+Object.assign(ENEMIES,{
+ cultist:{name:'혈천교 무사',hp:80,atk:12,spd:1.9,w:24,h:46,xp:10,gold:[3,7],ai:'combo2',wind:24,palette:PAL.cult,fx:'#ff4060',desc:'[1부 · 혈천교] 붉은 두건의 교도 무사. 붉게 깜빡인 뒤 두 번 연속으로 벤다 — 두 번째 칼을 조심하라.'},
+ monk:{name:'혈승',hp:95,atk:13,spd:2.4,w:24,h:46,xp:12,gold:[4,8],ai:'monk',wind:18,palette:PAL.monk,desc:'[1부 · 혈천교] 피로 몸을 단련한 혈승. 공격을 읽고 뒤로 피하며, 손바닥을 앞세워 돌진한다.'},
+ shield:{name:'배신 용병 방패병',hp:120,atk:12,spd:1.3,w:26,h:48,xp:14,gold:[4,8],ai:'shield',wind:34,palette:PAL.merc,desc:'[1부 · 배신 용병] 혈천교의 금에 넘어간 용병. 정면 공격은 방패로 막는다 — 뛰어넘어 뒤를 치거나, 내려찍기·묵직한 공격으로 깨라.'},
+ ronin:{name:'동방 낭인',hp:100,atk:18,spd:2.0,w:24,h:46,xp:15,gold:[5,9],ai:'iai',wind:50,palette:PAL.ronin,desc:'[1부 · 동방 무인] 혈천교에 칼을 판 떠돌이 검객. 바닥에 빛의 선이 그어지면 발도 돌진이 온다 — 패링하거나 뛰어올라 피하라. 기를 모으는 중 때리면 끊긴다.'},
+ spear:{name:'혈천교 창병',hp:85,atk:13,spd:1.7,w:24,h:46,xp:11,gold:[3,7],ai:'lancer',wind:28,palette:PAL.cultH,desc:'[1부 · 혈천교] 긴 창으로 거리를 두고 찌른다. 찌른 뒤 물러서는 순간을 파고들어라.'},
+ hexer:{name:'혈부사',hp:70,atk:11,spd:1.4,w:24,h:46,xp:13,gold:[4,8],ai:'hexer',palette:PAL.hex,desc:'[1부 · 혈천교] 피의 부적을 다루는 술사. 아군에게 혈부 결계(보호막)를 씌우고 회복시킨다 — 가장 먼저 베라.'},
+ axe:{name:'배신 용병 도끼수',hp:140,atk:15,spd:1.2,w:30,h:52,xp:15,gold:[5,9],ai:'thrower',wind:30,heavy:true,palette:PAL.axe,desc:'[1부 · 배신 용병] 멀리서는 도끼를 던지고, 가까이서는 내려찍는다. 잘 밀리지 않는다.'},
+ berserk:{name:'혈귀병',hp:130,atk:15,spd:1.8,w:26,h:48,xp:15,gold:[5,9],ai:'berserk',wind:26,palette:PAL.bers,desc:'[1부 · 혈천교] 피의 약으로 고통을 잊은 광전사. 체력이 절반 아래로 떨어지면 광폭해진다.'},
+ imp:{name:'소악마',hp:60,atk:12,spd:2.4,w:24,h:30,xp:10,gold:[2,5],ai:'imp',fly:true,palette:PAL.imp,desc:'[2부 · 마왕군 정규] 공중에서 화염구를 던지는 하급 악마. 화염구는 바닥에 닿으면 터진다.'},
+ wraith:{name:'원혼',hp:90,atk:15,spd:2.2,w:26,h:44,xp:14,gold:[3,7],ai:'wraith',fly:true,palette:PAL.wraith,desc:'[2부 · 망국의 언데드] 주기적으로 반투명해져 공격이 통하지 않는다. 실체화했을 때, 또는 급강하를 패링해 기절시켜라.'},
+ hound:{name:'지옥견',hp:85,atk:14,spd:3.4,w:40,h:26,xp:12,gold:[3,6],ai:'hound',palette:PAL.imp,desc:'[2부 · 마왕군 정규] 몸을 웅크린 뒤 덮쳐 온다. 덮친 뒤의 빈틈을 노려라.'},
+ golemite:{name:'적철 골렘',hp:220,atk:18,spd:1.0,w:34,h:50,xp:20,gold:[6,10],ai:'golemite',heavy:true,palette:PAL.gmite,desc:'[2부 · 대지의 분노] 거신에게서 떨어져 나온 광석 덩어리. 쓰러지면 잠시 뒤 폭발한다 — 물러나라.'},
+ deathknight:{name:'마왕군 흑기사',hp:260,atk:24,spd:1.4,w:28,h:52,xp:26,gold:[8,14],ai:'shield',wind:30,combo:true,heavy:true,palette:PAL.dk,fx:'#ff2030',desc:'[2부 · 마왕군 정예] 방패와 대검을 든 마왕군 기사. 정면 공격을 막고 2연격을 휘두른다.'},
+ bonepile:{name:'뼈 무더기',hp:40,atk:0,spd:0,w:28,h:14,xp:0,gold:[0,0],ai:'bonepile',noCodex:true}});
+Object.assign(SA_T,{shield:3,axe:3,berserk:2,ronin:1,golemite:4,deathknight:4});
+Object.assign(ENEMIES.slime,{desc:'[2부 · 심연의 누출] 마기가 고인 물에 스며 생긴 점액. 죽으면 두 마리로 갈라진다.'});
+Object.assign(ENEMIES.skeleton,{desc:'[2부 · 망국의 언데드] 옛 왕국의 병사. 쓰러지면 뼈 무더기가 남아 다시 일어난다 — 무더기를 부숴라.'});
+Object.assign(ENEMIES.archer,{desc:'[2부 · 망국의 언데드] 옛 왕국 성벽의 궁수. 3연발을 쏜다. 화살은 베거나 패링으로 되돌릴 수 있다.'});
+Object.assign(ENEMIES.caster,{desc:'[2부 · 마왕군 정규] 마왕군 술사단. 추적 마력구를 함께 날린다. 순간이동 직전 보랏빛으로 깜빡일 때 끊어라.'});
+Object.assign(ENEMIES.oni,{desc:'[2부 · 마왕군 정규] 노역 마물. 체력이 40% 아래로 떨어지면 광폭해진다.'});
+Object.assign(ENEMIES.fallen,{desc:'[2부 · 마기의 잠식] 1부에서 함께 싸웠던 성기사. 방패로 정면을 막는다.'});
+
+/* ---- 출몰표: 2부 신규 마물 · 1부 인간형 대체 ---- */
+POOLS[0].push('wraith');POOLS[1].push('golemite','imp','hound');POOLS[2].push('deathknight','wraith');
+POOLS[3].push('imp','hound','wraith','deathknight');POOLS[4].push('deathknight','hound','wraith','imp');if(POOLS[5])POOLS[5].push('deathknight','wraith','golemite');
+const MONSTERS=new Set(['slime','bat','skeleton','archer','oni','caster','fallen','imp','wraith','hound','golemite','deathknight']);
+const SHIELDED=new Set(['shield','deathknight']);
+const SUB2={slime:['thug','cultist'],bat:['bandit','monk'],skeleton:['cultist','blood','spear'],archer:['xbow','hexer'],oni:['axe','berserk'],caster:['hexer','viper'],fallen:['shield','ronin','gwigeom'],
+ imp:['hexer','xbow'],wraith:['ronin','monk'],hound:['bandit','monk'],golemite:['axe','berserk'],deathknight:['shield','gwigeom']};
+const _v14se=spawnEnemy;spawnEnemy=function(t,x,o){
+ if(!isDemon()&&G.mode!=='training'&&SUB2[t]){const c=SUB2[t].filter(k=>ENEMIES[k]);if(c.length){if(t==='oni')o=Object.assign({},o||{},{elite:true});t=pick(c);}}
+ const e=_v14se(t,x,o);if(!e)return e;
+ if(SHIELDED.has(t)||(t==='fallen'&&isDemon()))e.shieldOn=true;
+ if(isDemon()&&MONSTERS.has(t)&&e.maxHp<1e8){e.maxHp=e.hp=Math.round(e.maxHp*1.3);e.atk*=1.15;}
+ return e;};
+if(typeof FAC!=='undefined'){const W14=[
+ [['thug','thug'],['thug','axe'],['thug','thug','axe','cultist']],
+ [['bandit','bandit','spear'],['bandit','xbow','monk'],['xbow','xbow','bandit','axe']],
+ [['blood','cultist','cultist'],['blood','monk','spear'],['blood','blood','hexer','cultist']],
+ [['viper','viper','shield'],['viper','hexer','monk'],['viper','shield','berserk','xbow']],
+ [['gwigeom','ronin'],['ronin','hexer','shield'],['gwigeom','gwigeom','ronin','berserk']],
+ [['berserk','cultist','hexer','shield'],['gwigeom','ronin','berserk','spear','hexer']]];
+ FAC.forEach((f,i)=>{const bw=f.waves.find(w=>w.boss);if(W14[i])f.waves=W14[i].map(e=>({e})).concat(bw?[bw]:[]);});}
+
+/* ---- 신규 AI ---- */
+function v14App(e,sg,adx,stop){e.face=sg;e.vx=adx>stop?sg*e.spd:e.vx*0.7;}
+function aiCombo2(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.7;if(--e.t<=0){e.st='atk';e.t=0;}}
+ else if(e.st==='atk'){e.t++;e.vx*=0.8;if(e.t===1||e.t===13){e.face=sg;e.vx=sg*3;eHit(e,eFront(e,80,66));sfx('slash');eSlashFx(e,58,e.D.fx);}if(e.t>=36){e.st='idle';e.cd=randi(60,100);}}
+ else{v14App(e,sg,adx,60);if(adx<90&&e.cd<=0){e.st='wind';e.t=e.D.wind;}}}
+function aiMonk(e,dx,adx,sg){
+ if(e.st==='idle'&&P.atkT>0&&P.atkT>=P.atkDur-1&&adx<120&&!((e.evCd||0)>0)&&Math.random()<0.4){e.evCd=90;e.vx=-sg*8;e.vy=-4;e.evT=14;addNum(cxOf(e),e.y-10,'회피','#9fe8ff');return;}
+ if(e.evCd>0)e.evCd--;
+ if(e.st==='wind'){e.vx*=0.6;if(--e.t<=0){e.st='dash';e.t=10;e.face=sg;e.hitP=false;}}
+ else if(e.st==='dash'){e.vx=e.face*11;if(!e.hitP&&ov(e,P)){e.hitP=true;hurtPlayer(e.atk*1.1,e);}if(--e.t<=0){e.st='rec';e.t=30;}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0){e.st='idle';e.cd=randi(60,90);}}
+ else{v14App(e,sg,adx,120);if(adx<200&&e.cd<=0){e.st='wind';e.t=e.D.wind;}}}
+function aiShield(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.6;if(--e.t<=0){e.st='atk';e.t=0;}}
+ else if(e.st==='atk'){e.t++;if(e.t===1){e.vx=sg*6;eHit(e,eFront(e,70,60));sfx('heavy');eSlashFx(e,50,'#cfd8e8');}
+  if(e.D.combo&&e.t===16){eHit(e,eFront(e,110,90),1.2);sfx('slash');eSlashFx(e,70,e.D.fx);}
+  e.vx*=0.85;if(e.t>=(e.D.combo?40:30)){e.st='rec';e.t=20;}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0){e.st='idle';e.cd=randi(70,110);}}
+ else{e.face=sg;e.vx=adx>70?sg*e.spd:e.vx*0.7;if(adx<100&&e.cd<=0){e.st='wind';e.t=e.D.wind;}}}
+function aiIai(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.5;if(e.t===e.D.wind)addFx({kind:'tline',x:cxOf(e),y:e.y+e.h-3,dir:e.face,len:230,col:'#fff2b0',life:e.D.wind});
+  if(e.t%8===0)sparks(cxOf(e)+e.face*10,cyOf(e),'#fff2b0',2);if(--e.t<=0){e.st='dash';e.t=12;e.hitP=false;sfx('cut');}}
+ else if(e.st==='dash'){e.vx=e.face*18;if(!e.hitP&&ov({x:e.x-10,y:e.y,w:e.w+20,h:e.h},P)){e.hitP=true;hurtPlayer(e.atk*1.4,e);}if(e.t%2)burst(cxOf(e),cyOf(e),'#fff2b0',2,2,{g:0});if(--e.t<=0){e.st='rec';e.t=45;e.vx=e.face*4;}}
+ else if(e.st==='rec'){e.vx*=0.85;if(--e.t<=0){e.st='idle';e.cd=randi(80,120);}}
+ else{e.face=sg;e.vx=adx>220?sg*e.spd:adx<150?-sg*e.spd*0.6:e.vx*0.7;if(adx<260&&e.cd<=0&&Math.abs(cyOf(P)-cyOf(e))<60){e.st='wind';e.t=e.D.wind;}}}
+function aiLancer(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.6;if(--e.t<=0){e.st='atk';e.t=14;e.sw=10;const bx={x:e.face>0?cxOf(e):cxOf(e)-150,y:cyOf(e)-16,w:150,h:30};
+  if(ov(bx,P))hurtPlayer(e.atk*1.1,e);sfx('slash');addFx({kind:'line',x1:cxOf(e),y1:cyOf(e),x2:cxOf(e)+e.face*150,y2:cyOf(e),col:'#ffb0a0',life:8,w:4});}}
+ else if(e.st==='atk'){e.vx*=0.8;if(--e.t<=0){e.st='idle';e.cd=randi(60,100);e.vx=-e.face*5;}}
+ else{e.face=sg;e.vx=adx>150?sg*e.spd:adx<90?-sg*e.spd:e.vx*0.7;if(adx<170&&e.cd<=0){e.st='wind';e.t=e.D.wind;}}}
+function aiHexer(e,dx,adx,sg){
+ if(e.bf==null)e.bf=randi(120,200);
+ if(--e.bf<=0){e.bf=300;let n=0;for(const a of enemies)if(a!==e&&!a.dead&&!a.boss&&a.ai!=='dummy'&&a.ai!=='bonepile'&&dist(a,e)<240){n++;a.barrier=Math.round(a.maxHp*0.3);a.hp=Math.min(a.maxHp,a.hp+a.maxHp*0.15);}
+  if(n){addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:10,max:240,col:'#ff4060',life:20});addNum(cxOf(e),e.y-14,'혈부 결계','#ff8090');sfx('skill');e.st='rec';e.t=30;return;}}
+ if(e.st==='wind'){e.vx*=0.7;if(--e.t<=0){const a=Math.atan2(cyOf(P)-cyOf(e),dx);shoot({friend:false,kind:'tali',x:cxOf(e)-8,y:cyOf(e)-10,w:16,h:20,vx:Math.cos(a)*6,vy:Math.sin(a)*6,life:120,dmg:e.atk,col:'#ff4060'});sfx('shoot');e.st='idle';e.cd=randi(80,120);}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0)e.st='idle';}
+ else{e.face=sg;e.vx=adx<240?-sg*e.spd:adx>420?sg*e.spd:e.vx*0.8;if(e.cd<=0&&adx<520){e.st='wind';e.t=30;}}}
+function aiThrower(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.6;if(--e.t<=0){
+   if(e.mode==='throw'){const T=40,g=0.35;shoot({friend:false,kind:'rock',x:cxOf(e)-10,y:e.y,w:20,h:20,vx:(cxOf(P)-cxOf(e))/T,vy:(P.y+P.h-20-e.y-g*T*(T-1)/2)/T,grav:g,life:160,dmg:e.atk,col:'#b0b8c0'});sfx('shoot');}
+   else{eHit(e,eFront(e,96,80),1.2);sfx('heavy');shake(4);eSlashFx(e,64,'#d0d0d0');}
+   e.st='rec';e.t=34;e.cd=randi(80,130);}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0)e.st='idle';}
+ else{e.face=sg;e.vx=adx>80?sg*e.spd:e.vx*0.7;if(e.cd<=0){if(adx<110){e.mode='melee';e.st='wind';e.t=e.D.wind;}else if(adx<420){e.mode='throw';e.st='wind';e.t=26;}}}}
+function aiBerserk(e,dx,adx,sg){
+ if(!e.rage&&e.hp<e.maxHp*0.5){e.rage=1;e.spd*=1.6;addNum(cxOf(e),e.y-16,'광폭!','#ff4040');burst(cxOf(e),cyOf(e),'#ff3040',12,4,{g:0});}
+ if(e.st==='wind'){e.vx*=0.7;if(--e.t<=0){eHit(e,eFront(e,86,70),e.rage?1.25:1);sfx('slash');eSlashFx(e,60,'#ff3040');e.st='rec';e.t=e.rage?12:24;e.cd=e.rage?randi(20,40):randi(60,100);}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0)e.st='idle';}
+ else{v14App(e,sg,adx,56);if(adx<90&&e.cd<=0){e.st='wind';e.t=e.rage?14:e.D.wind;}}
+ if(e.rage&&G.t%5===0)parts.push({x:cxOf(e)+rand(-8,8),y:e.y+rand(0,e.h),vx:0,vy:-1,life:14,max:14,col:'#ff3040',sz:2,g:0,add:true});}
+function aiImp(e,dx,adx,sg){
+ const tx=cxOf(P)-sg*180,ty=P.y-120;e.vx+=(Math.sign(tx-cxOf(e))*e.spd-e.vx)*0.05;e.vy+=(Math.sign(ty-e.y)*e.spd*0.6-e.vy)*0.05+Math.sin(e.anim*0.1)*0.12;e.face=sg;
+ if(e.st==='wind'){e.vx*=0.9;e.vy*=0.9;if(--e.t<=0){const a=Math.atan2(cyOf(P)-cyOf(e),dx);shoot({friend:false,kind:'fire',x:cxOf(e)-9,y:cyOf(e)-9,w:18,h:18,vx:Math.cos(a)*5.5,vy:Math.sin(a)*5.5,life:140,dmg:e.atk,explode:46,col:'#ff7a2a'});sfx('shoot');e.st='idle';e.cd=randi(90,140);}}
+ else if(e.cd<=0&&adx<460){e.st='wind';e.t=26;}}
+function aiWraith(e,dx,adx,sg){
+ e.ph=(e.ph||0)+1;e.phasing=(e.ph%240)<90&&e.st!=='dive';
+ if(e.st==='dive'){if(!e.hitP&&ov(e,P)){e.hitP=true;hurtPlayer(e.atk,e);}if(--e.t<=0){e.st='idle';e.cd=randi(70,110);}return;}
+ const tx=cxOf(P)-sg*120,ty=P.y-90;e.vx+=(Math.sign(tx-cxOf(e))*e.spd-e.vx)*0.04;e.vy+=(Math.sign(ty-e.y)*e.spd*0.6-e.vy)*0.04;e.face=sg;
+ if(!e.phasing&&e.cd<=0&&adx<320){if(e.st!=='wind'){e.st='wind';e.t=22;}else if(--e.t<=0){const a=Math.atan2(cyOf(P)-cyOf(e),dx);e.vx=Math.cos(a)*8;e.vy=Math.sin(a)*8;e.st='dive';e.t=30;e.hitP=false;}}}
+function aiHound(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.6;if(--e.t<=0){e.st='leap';e.vy=-7;e.vx=sg*9;e.face=sg;e.hitP=false;e.t=40;}}
+ else if(e.st==='leap'){if(!e.hitP&&ov(e,P)){e.hitP=true;hurtPlayer(e.atk,e);}if((e.ground&&e.t<36)||--e.t<=0){e.st='rec';e.t=26;}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0){e.st='idle';e.cd=randi(40,80);}}
+ else{e.face=sg;e.vx=adx>140?sg*e.spd:adx<70?-sg*e.spd*0.5:e.vx*0.8;if(adx<200&&e.cd<=0){e.st='wind';e.t=18;}}}
+function aiGolemite(e,dx,adx,sg){
+ if(e.st==='wind'){e.vx*=0.5;if(--e.t<=0){eHit(e,eFront(e,100,80),1.2);shake(6);sfx('boom');
+   shoot({friend:false,kind:'shock',x:cxOf(e)+e.face*30-20,y:FLOOR-26,w:40,h:26,vx:e.face*5,life:40,dmg:e.atk*0.6,persist:true,cuttable:false,isProj:false,col:'#ff8a3c'});e.st='rec';e.t=40;e.cd=randi(100,150);}}
+ else if(e.st==='rec'){e.vx*=0.8;if(--e.t<=0)e.st='idle';}
+ else{e.face=sg;e.vx=adx>80?sg*e.spd:e.vx*0.7;if(adx<120&&e.cd<=0){e.st='wind';e.t=44;}}}
+function aiBonepile(e){e.vx=0;if(++e.t>=150){e.dead=true;burst(cxOf(e),e.y,'#e6e0cc',12,3);const s=spawnEnemy('skeleton',cxOf(e),{});if(s){s.revived=1;s.hp=Math.round(s.maxHp*0.6);s.y=FLOOR-s.h;}}}
+const V14AI={combo2:aiCombo2,monk:aiMonk,shield:aiShield,iai:aiIai,lancer:aiLancer,hexer:aiHexer,thrower:aiThrower,berserk:aiBerserk,imp:aiImp,wraith:aiWraith,hound:aiHound,golemite:aiGolemite,bonepile:aiBonepile};
+
+/* ---- 적 업데이트: 신규 AI 실행 · 기존 마물 강화 ---- */
+function v14Pre(e){e.anim++;if(e.flash>0)e.flash--;if(e.sw>0)e.sw--;if(e.evT>0)e.evT--;
+ if(e.burn>0){e.burn--;if(e.burn%30===0){const d=Math.max(1,Math.round(P.st.atk*0.25));e.hp-=d;addNum(cxOf(e),e.y-4,d,'#ff9a3c');if(e.hp<=0){killEnemy(e);return false;}}}
+ if(e.ai==='bonepile')return true;
+ if(e.stun>0){e.stun--;e.st='idle';e.vx*=0.85;if(e.fly)e.vy*=0.85;return false;}
+ if(e.stagger>0&&!(e.heavy&&e.st==='wind')){e.stagger--;if(!['dash','leap','dive'].includes(e.st))e.st='idle';e.vx*=0.85;if(e.fly)e.vy*=0.85;return false;}
+ e.stagger=0;if(e.cd>0)e.cd--;if(P.dead){e.vx*=0.8;return false;}return true;}
+function monsterTick(e,st0){
+ if(e.type==='archer'&&st0==='wind'&&e.st==='idle'&&(e.elite||Math.random()<0.4))for(const v of[-1.3,1.3])shoot({friend:false,kind:'arrow',x:cxOf(e)+e.face*14-11,y:e.y+16,w:22,h:6,vx:e.face*7.5,vy:v,life:120,dmg:e.atk*0.8,col:'#e0d0a0'});
+ if(e.type==='caster'&&st0==='wind'&&e.st==='idle'){const a0=Math.atan2(cyOf(P)-cyOf(e),cxOf(P)-cxOf(e));for(const d of[-0.5,0.5])shoot({friend:false,kind:'orb',x:cxOf(e)-8,y:e.y+10,w:16,h:16,vx:Math.cos(a0+d)*4,vy:Math.sin(a0+d)*4,life:170,dmg:e.atk*0.7,col:'#c070ff',home:50});}
+ if(e.type==='oni'&&!e.rage&&e.hp<e.maxHp*0.4){e.rage=1;e.spd*=1.5;e.cd=0;addNum(cxOf(e),e.y-16,'광폭!','#ff4040');burst(cxOf(e),cyOf(e),'#ff3040',14,4,{g:0});}}
+const _v14ue=updateEnemy;updateEnemy=function(e){if(e.gbT>0)e.gbT--;const f=V14AI[e.ai];
+ if(!f){const st0=e.st;_v14ue(e);if(!e.dead&&isDemon()&&MONSTERS.has(e.type))monsterTick(e,st0);return;}
+ const xb=e.x,yb=e.y;
+ if(v14Pre(e)){const dx=cxOf(P)-cxOf(e);f(e,dx,Math.abs(dx),Math.sign(dx)||1);}
+ if(e.dead)return;if(e.stun>0)e.phasing=false;
+ if(e.fly){e.x=clamp(e.x+e.vx,0,G.roomW-e.w);e.y=clamp(e.y+e.vy,40,FLOOR-e.h);}else physics(e);
+ if(e.slowT>0){e.slowT--;e.x=xb+(e.x-xb)*0.45;if(e.fly)e.y=yb+(e.y-yb)*0.45;}
+ if(e.confuse>0){e.confuse--;e.x=clamp(xb-(e.x-xb),0,G.roomW-e.w);}
+ if(e.seal>0)e.seal--;};
+const _v14th=enemyThreat;enemyThreat=function(){if(_v14th())return true;for(const e of enemies)if(!e.dead&&['dash','leap','atk','dive'].includes(e.st)&&Math.abs(cxOf(e)-cxOf(P))<280)return true;return false;};
+
+/* ---- 피해 판정: 원혼 무효 · 회피 · 방패 막기 · 혈부 결계 ---- */
+const _v14dm=damageEnemy;damageEnemy=function(e,base,o){o=o||{};if(!e||e.dead)return 0;
+ if(e.phasing&&!(e.stun>0)){if(G.t-(e.msgT||-99)>20){e.msgT=G.t;addNum(cxOf(e),e.y-6,'무효','#9fe8ff');}return 0;}
+ if(e.evT>0)return 0;
+ if(e.shieldOn&&!(e.gbT>0)&&!(e.stun>0)&&(e.st==='idle'||e.st==='rec')&&P&&!o.heavy&&(cxOf(P)-cxOf(e))*e.face>0&&P.y+P.h>e.y+12){
+  base*=0.15;e.gb=(e.gb||0)+1;const mx=e.type==='deathknight'?7:5;
+  if(e.gb>=mx){e.gb=0;e.gbT=180;e.stun=Math.max(e.stun||0,70);addNum(cxOf(e),e.y-20,'가드 브레이크!','#ffd34d');sfx('heavy');sparks(cxOf(e),cyOf(e),'#ffd34d',10);}
+  else if(G.t-(e.msgT||-99)>12){e.msgT=G.t;addNum(cxOf(e),e.y-6,'막힘','#cfd8e8');sparks(cxOf(e)+e.face*12,cyOf(e),'#dfe8ff',4);sfx('parry');}}
+ if(e.barrier>0){const a=Math.min(e.barrier,base);e.barrier-=a;base-=a;if(base<=0){e.flash=3;burst(cxOf(e),cyOf(e),'#ff4060',3,2,{g:0});return 0;}}
+ return _v14dm(e,base,o);};
+
+/* ---- 처치 시: 분열 · 뼈 무더기 · 폭발 ---- */
+const _v14ke=killEnemy;killEnemy=function(e){const was=!!(e&&!e.dead);_v14ke(e);if(!was||!e.dead||!isDemon())return;
+ if(e.type==='skeleton'&&!e.revived&&!e.elite)spawnEnemy('bonepile',cxOf(e),{});
+ else if(e.type==='slime'&&!e.small){for(const s of[-1,1]){const m=spawnEnemy('slime',cxOf(e)+s*14,{});if(m){m.small=1;m.w=Math.round(m.w*0.6);m.h=Math.round(m.h*0.6);m.y=FLOOR-m.h;m.maxHp=m.hp=Math.max(5,Math.round(m.maxHp*0.35));m.vx=s*3;m.vy=-5;}}}
+ else if(e.type==='golemite'){shoot({friend:false,kind:'fire',x:cxOf(e)-6,y:cyOf(e)-6,w:12,h:12,vx:0,vy:0,life:45,dmg:e.atk*1.3,explode:95,col:'#ff6a2a'});
+  addFx({kind:'tmark',x:cxOf(e),y:FLOOR-2,r:95,col:'#ff3040',life:45});addNum(cxOf(e),e.y-10,'폭발 임박!','#ff8a3c');}};
+
+/* ---- 포즈 · 그리기 ---- */
+const _v14ep=enemyPose;enemyPose=function(e){const p=_v14ep(e),k=e.type,a=e.st;
+ if(k==='monk'){p.noWeapon=true;p.two=false;if(a==='dash'){p.hands=[[9,3],[-2,4]];p.lean=0.6;p.feet=[[6,0],[-6,0]];}else if(a==='wind'){p.hands=[[-1,5],[2,3]];p.lean=-0.1;}else p.hands=[[4.5,3],[2.5,3.5]];}
+ if((SHIELDED.has(k)||(k==='fallen'&&e.shieldOn))&&(a==='idle'||a==='rec')&&!(e.gbT>0)){p.shield=true;p.wHand=1;p.w=-1.1;p.hands=[[5,3.5],[-1,3]];p.two=false;}
+ if(k==='ronin'){if(a==='wind'){p.sheath=true;p.hands=[[2.5,8.5],[0,9.5]];p.w=2.75;p.head={t:1,sh:0.7,gl:(G.t>>3)%2};p.lean=0.3;p.hip=[-0.5,-9.4];p.feet=[[5,0],[-6,0]];}else if(a==='dash'||(a==='rec'&&e.t>30))poseAttack(p,'line',1);}
+ if(k==='spear'){if(a==='wind')poseAttack(p,'thrust',0.2*(1-e.t/e.D.wind));else if(a==='atk')poseAttack(p,'thrust',0.6);}
+ if(k==='hexer'&&a==='wind'){p.hands=[[7,-1],[-2,3]];p.w=-0.6;}
+ return p;};
+function drawHoundArt(e,tint,tA){const C=RIGC[64];RG=C.a.getContext('2d');RG.clearRect(0,0,64,64);const cx=32,by=60,body='#2a1414',lp=e.st==='leap';
+ rpoly([[cx-14,by-14],[cx+8,by-16],[cx+12,by-10],[cx-14,by-8]],body);rr(cx-14,by-15,22,2,'#4a2020');
+ for(const[lx,ph]of[[-12,0],[-7,3],[4,1.5],[9,4.5]]){const s=lp?2:Math.sin(e.anim*0.4+ph)*3;rline(cx+lx,by-9,cx+lx+s,by,2,'#1a0c0c');}
+ rpoly([[cx+8,by-18],[cx+17,by-16],[cx+20,by-12],[cx+12,by-10]],body);rr(cx+10,by-21,2,4,body);rr(cx+14,by-17,2,1,'#ff3020');rr(cx+17,by-12,3,1,'#f0e8d8');
+ for(let i=0;i<4;i++)rr(cx-15-i*2,by-15-i+Math.sin(e.anim*0.3+i),2,2,i%2?'#ff5a1a':'#2a1414');
+ const o=rigCompose(C,64,tint,tA);rigBlit({c:o,ox:32,oy:60,size:64,sc:1.3},cxOf(e),e.y+e.h,e.face||1);}
+function drawBonepile(e){const cx=cxOf(e),by=e.y+e.h,pr=e.t/150;ctx.fillStyle='#d8d0b8';for(let i=0;i<6;i++)ctx.fillRect(cx-14+i*5,by-4-(i%3)*3,6,3);
+ ctx.fillStyle='#e6e0cc';ctx.fillRect(cx-5,by-12,10,8);ctx.fillStyle='#1a1010';ctx.fillRect(cx-3,by-10,2,2);ctx.fillRect(cx+1,by-10,2,2);
+ ctx.fillStyle=`rgba(255,40,48,${0.3+0.3*Math.sin(G.t*0.3)})`;ctx.fillRect(cx-16,by-2,32,2);bar(e.x-2,e.y-10,e.w+4,3,1-pr,'#e6e0cc','rgba(0,0,0,.6)');txt('부활',cx,e.y-14,'#ffb0a0',10,'center');}
+function v14Top(e){const cx=cxOf(e),top=e.y-24;if(e.stun>0)for(let i=0;i<3;i++){const a=G.t*0.15+i*2.1;txt('★',cx+Math.cos(a)*14,top+Math.sin(a)*4,'#ffe07a',11,'center');}
+ if(e.hp<e.maxHp)bar(e.x,top-2,e.w,4,e.hp/e.maxHp,e.elite?'#ffd34d':'#ff5a5a','rgba(0,0,0,.6)');}
+const _v14dr=drawEnemy;drawEnemy=function(e){
+ if(e.ai==='bonepile'){drawBonepile(e);return;}
+ if(e.ai==='hound'){const tele=e.st==='wind'&&(G.t>>2)%2===0;drawHoundArt(e,e.flash>0?'#ffffff':tele?'#ff3030':null,e.flash>0?0.85:0.4);if(tele)txt('!',cxOf(e),e.y-30,'#ff4040',20,'center');v14Top(e);return;}
+ if(e.phasing){ctx.save();ctx.globalAlpha=0.35;_v14dr(e);ctx.restore();}else _v14dr(e);
+ if(e.dead||e.hide)return;
+ if(e.barrier>0){ctx.save();ctx.strokeStyle=`rgba(255,64,96,${0.5+0.3*Math.sin(G.t*0.2)})`;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cxOf(e),cyOf(e),e.w*0.9,e.h*0.65,0,0,7);ctx.stroke();ctx.restore();}
+ if(e.shieldOn&&!(e.gbT>0)&&e.gb>0)bar(e.x,e.y-32,e.w,3,1-e.gb/(e.type==='deathknight'?7:5),'#cfd8e8','rgba(0,0,0,.6)');};
+
+/* ---- 훈련장: 신규 적 소환 버튼 ---- */
+const _v14rtr=refreshTrain;refreshTrain=function(){_v14rtr();const tr=$('train');tr.style.maxHeight='380px';tr.style.overflowY='auto';const g=tr.querySelectorAll('.tgrid')[2];if(!g)return;
+ g.insertAdjacentHTML('beforeend',['cultist','monk','shield','ronin','spear','hexer','axe','berserk','imp','wraith','hound','golemite','deathknight'].map(k=>`<button class="btn sm" onclick="trSpawn('${k}')">${ENEMIES[k].name}</button>`).join(''));};
+
+/* ---- 버전 표기 ---- */
+const _v14ti=showTitle;showTitle=function(){_v14ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 2단계 · v14';};
+const _v14mn=showMenu;showMenu=function(){_v14mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 2단계 · v14 · 자동 저장 지원';};
+
+/* ── ⑥ 3단계 · 보스 리워크 (v15) ── */
+/* ===================== 63. 완전판 3단계 (v15): 보스 리워크 — 혼돈의 검 · 화산 대폭발 · 성검의 시험 · 마왕의 품격 · 흑월야 · 성검전설 ===================== */
+/* ---- 망령 근위병 (아르디스 소환 전용 언데드) ---- */
+ENEMIES.royalguard={name:'망령 근위병',hp:110,atk:15,spd:1.4,w:26,h:48,xp:14,gold:[4,8],ai:'shield',wind:32,palette:PAL.bone,desc:'[2부 · 망국의 언데드] 아르디스 왕을 지키던 근위병의 망령. 방패로 정면을 막는다.'};
+RIGDEF.royalguard={head:'skull',body:'bones',w:'rust',sw:6,ww:4,armw:1.4,lw:1.6,skirt:2,flare:1};ERIG.royalguard='royalguard';
+SHIELDED.add('royalguard');MONSTERS.add('royalguard');SUB2.royalguard=['shield'];SA_T.royalguard=2;
+ENEMIES.chaosblade={name:'혼돈의 검',hp:1e9,atk:0,spd:0,w:30,h:70,ai:'chaosblade',fly:true,noCodex:true,gold:[0,0],xp:0};
+Object.defineProperty(BOSSES[0],'summon',{get:()=>pick(['skeleton','skeleton','archer','wraith','royalguard']),configurable:true});
+
+/* ---- 보스 패턴 등록 ---- */
+BOSSES[1].patterns.push('eruption');BOSSES[2].patterns.push('holysword');BOSSES[3].patterns.unshift('dignity');BOSSES[4].patterns.push('blackmoon');
+Object.assign(PNAME[1],{eruption:'화산 대폭발'});Object.assign(PNAME[2],{holysword:'성검전설'});Object.assign(PNAME[3],{dignity:'마왕의 품격'});Object.assign(PNAME[4],{blackmoon:'흑월야'});
+Object.assign(PWIND,{eruption:60,holysword:40,dignity:30,blackmoon:30});
+BOSSES[0].desc+=' 주기적으로 떠오르는 혼돈의 검을 5초 안에 부숴 상쇄하라.';
+BOSSES[1].desc+=' 화산 대폭발 때는 초록 표식의 안전지대로 피하라.';
+BOSSES[2].desc+=' 체력을 30%까지 깎으면 시험 통과. 성검전설의 성광구를 패링해 보아라.';
+BOSSES[3].desc+=' 마기 보호막은 성검전설로만 단번에 벗겨진다.';
+BOSSES[4].desc+=' 흑월야 — 어둠 속 참격선을 읽어라.';
+
+function pErupt(e,t,sg,sp){e.vx=0;e.tele=t<60?1:0;const cols=Math.ceil(G.roomW/80);
+ const wave=off=>{const g1=randi(0,cols-2),g2=(g1+randi(3,Math.max(3,cols-3)))%(cols-1);
+  for(let i=0;i<cols;i++){if(i===g1||i===g1+1||i===g2||i===g2+1){addFx({kind:'tmark',x:i*80+40,y:FLOOR-2,r:30,col:'#7dff8a',life:off+4});continue;}
+   shoot({friend:false,kind:'pillar',x:i*80+18,y:0,w:44,h:FLOOR,life:24,delay:off+Math.abs(i-g1)*2,dmg:e.atk*1.4,persist:true,cuttable:false,isProj:false,col:'#ff6a1a'});}};
+ if(t===1){wave(58);if(e.B.golem)lavaSpray(e,20);sfx('skill');}
+ if(t===60){shake(16);sfx('boom');G.flash={col:'#ff6a1a',t:12};if(e.B.golem)lavaSpray(e,30);}
+ if(e.phase>=1&&t===90)wave(40);
+ if(t>=70&&t<=140&&t%10===0){const tx=clamp(cxOf(P)+rand(-200,200),20,G.roomW-20);shoot({friend:false,kind:'rock',x:tx-14,y:-40,w:28,h:28,grav:0.35,life:200,dmg:e.atk*0.8,col:'#ff6a1a',delay:24,warnX:tx,explode:50});}
+ if(t>=160)bossDone(e,sp);}
+function pHoly(e,t,sg,sp){e.vx*=0.7;e.tele=t<40?1:0;
+ if(t===1)addFx({kind:'tring',x:cxOf(e),y:cyOf(e),r:150,col:'#ffe07a',life:38});
+ if(t===40||t===70||(e.phase>=1&&t===100)){const x=clamp(cxOf(P),40,G.roomW-40);shoot({friend:false,kind:'pillar',x:x-30,y:0,w:60,h:FLOOR,life:22,delay:26,dmg:e.atk*1.3,persist:true,cuttable:false,isProj:false,col:'#ffe07a'});sfx('skill');}
+ const fin=e.phase>=1?140:110;
+ if(t===fin){e.face=sg;shoot({friend:false,kind:'orb',x:cxOf(e)-22,y:cyOf(e)-22,w:44,h:44,vx:sg*5,vy:0,life:180,dmg:e.atk*1.5,col:'#fff3c4',holyTest:1});addNum(cxOf(e),e.y-30,'패링하라!','#ffe07a');sfx('ult');}
+ if(t>=fin+40)bossDone(e,sp);}
+function pDignity(e,t,sg,sp){e.vx=0;e.tele=t<30?1:0;
+ if(t===1){e.mia=Math.max(e.mia||0,900);e.miaHits=0;addFx({kind:'banner',txt:'👑 마왕의 품격 — 마기 보호막',col:'#c070ff',life:80});addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:10,max:200,col:'#c070ff',life:24});sfx('ult');shake(8);}
+ if(t===40||t===80){const n=16,off=t===80?Math.PI/n:0;for(let i=0;i<n;i++){const a=i/n*6.283+off;shoot({friend:false,kind:'orb',x:cxOf(e)-9,y:cyOf(e)-9,w:18,h:18,vx:Math.cos(a)*3.6,vy:Math.sin(a)*3.6,life:160,dmg:e.atk*0.6,col:'#c070ff'});}sfx('boom');}
+ if(t>=110)bossDone(e,sp);}
+function pBlackMoon(e,t,sg,sp){e.vx=0;const n=e.phase>=1?7:5,fin=30+n*24+10;
+ if(t===1){e.hide=true;e.tele=0;G.v15night=fin+80;addFx({kind:'banner',txt:'🌑 흑월야',col:'#ff2040',life:90});sfx('ult');burst(cxOf(e),cyOf(e),'#ff2040',20,5,{g:0});}
+ const laser=(y,dl)=>shoot({friend:false,kind:'laser',x:0,y:y-14,w:G.roomW,h:28,vx:0,vy:0,life:20,delay:dl,dmg:e.atk*1.2,persist:true,cuttable:false,isProj:false,col:'#ff2040'});
+ const pillar=(x,dl)=>shoot({friend:false,kind:'pillar',x:x-22,y:0,w:44,h:FLOOR,life:20,delay:dl,dmg:e.atk*1.2,persist:true,cuttable:false,isProj:false,col:'#ff2040'});
+ for(let i=0;i<n;i++)if(t===30+i*24){if(i%2)pillar(clamp(cxOf(P),30,G.roomW-30),26);else laser(clamp(cyOf(P),FLOOR-240,FLOOR-20),26);sfx('cut');}
+ if(t===fin){const y=clamp(cyOf(P),FLOOR-240,FLOOR-20);laser(y,34);laser(Math.max(FLOOR-250,y-90),34);pillar(clamp(cxOf(P),30,G.roomW-30),34);sfx('cut');}
+ if(t===fin+46){e.hide=false;e.x=clamp(cxOf(P)-P.face*120-e.w/2,0,G.roomW-e.w);e.y=FLOOR-e.h;e.face=Math.sign(cxOf(P)-cxOf(e))||1;burst(cxOf(e),cyOf(e),'#ff2040',20,5,{g:0});signatureCut('#ff2040',true);}
+ if(t>=fin+70)bossDone(e,sp);}
+const V15PAT={eruption:pErupt,holysword:pHoly,dignity:pDignity,blackmoon:pBlackMoon};
+for(const k in V15PAT)V9PAT[k]=1;
+const _v15vp=v9Pattern;v9Pattern=function(e){const f=V15PAT[e.st];if(!f){_v15vp(e);return;}
+ const sp=1+(e.phase||0)*0.18,sg=Math.sign(cxOf(P)-cxOf(e))||1,t=++e.t;e.invulnT=e.hide?2:0;
+ f(e,t,sg,sp);physics(e);if(!e.hide&&ov(e,P))hurtPlayer(e.atk*0.5,e);};
+const _v15th=enemyThreat;enemyThreat=function(){if(enemies.some(e=>e.boss&&!e.dead&&V15PAT[e.st]))return true;return _v15th();};
+
+/* ---- 혼돈의 검 ---- */
+function spawnChaos(o){const x=clamp(cxOf(P)+rand(-220,220),70,G.roomW-70),e=spawnEnemy('chaosblade',x,{});if(!e)return;
+ Object.assign(e,{y:FLOOR-130,owner:o,cT:300,cMax:300,need:6+2*(o.phase||0),hits:0});
+ addFx({kind:'banner',txt:'⚔ 혼돈의 검 — 5초 안에 부숴 상쇄하라!',col:'#ff3040',life:90});addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:10,max:120,col:'#ff3040',life:20});sfx('skill');}
+function chaosShatter(e){if(e.dead)return;e.dead=true;const o=e.owner;sparks(cxOf(e),cyOf(e),'#ffd34d',18);sfx('parry');shake(8);
+ if(o&&!o.dead){if(o.st!=='idle'&&o.st!=='phase')bossDone(o,1);o.stun=Math.max(o.stun||0,120);if(o.brkMax!=null){o.brk=(o.brk||0)+35;o.brkHit=G.t;}}
+ addFx({kind:'banner',txt:'혼돈 상쇄! 망령왕이 흔들린다',col:'#ffd34d',life:70});signatureCut('#ff3040',false);}
+function chaosBlast(e){e.dead=true;const o=e.owner;addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:20,max:700,col:'#ff3040',life:30});G.flash={col:'#ff3040',t:18};shake(16);sfx('boom');
+ if(P&&!P.dead)hurtPlayer((o?o.atk:30)*2.5,e);if(o&&!o.dead)o.hp=Math.min(o.maxHp,o.hp+o.maxHp*0.04);
+ addFx({kind:'banner',txt:'혼돈 폭주 — 망령왕이 힘을 되찾는다',col:'#ff3040',life:80});}
+function drawChaos(e){const cx=cxOf(e),cy=cyOf(e),pr=e.cT/e.cMax;
+ ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=`rgba(255,48,64,${0.4+0.4*Math.sin(G.t*0.3)})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,30+40*pr,0,7);ctx.stroke();ctx.restore();
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(Math.sin(e.anim*0.05)*0.1);ctx.fillStyle=e.flash>0?'#ffffff':'#3a0a10';ctx.fillRect(-5,-34,10,56);
+ ctx.beginPath();ctx.moveTo(-5,22);ctx.lineTo(0,34);ctx.lineTo(5,22);ctx.fill();ctx.fillStyle='#ff3040';for(let y=-28;y<18;y+=8)ctx.fillRect(-1,y,2,4);
+ ctx.fillStyle='#6a1a20';ctx.fillRect(-14,-38,28,5);ctx.fillRect(-3,-50,6,12);ctx.restore();
+ for(let i=0;i<e.need;i++){ctx.fillStyle=i<e.hits?'#ffd34d':'rgba(255,255,255,.25)';ctx.fillRect(cx-e.need*4+i*8,e.y-14,6,4);}
+ txt(String(Math.ceil(e.cT/60)),cx,e.y-20,'#ff6070',14,'center');}
+
+/* ---- 보스 업데이트: 혼돈의 검 주기 · 마기 보호막 ---- */
+const _v15ub=updateBoss;updateBoss=function(e){
+ if(e.mia>0)e.mia--;
+ if(e.idx===3&&!e.dead&&e.st!=='phase'&&e.v15ph!==(e.phase||0)){e.v15ph=e.phase||0;if(e.phase){e.mia=900;e.miaHits=0;addFx({kind:'banner',txt:'👑 마왕의 품격 — 마기가 다시 감싼다',col:'#c070ff',life:70});}}
+ if(e.idx===0&&!e.dead&&e.st!=='phase'&&!(e.stun>0)&&P&&!P.dead){e.chT=(e.chT==null?600:e.chT)-1;
+  if(e.chT<=0&&!enemies.some(x=>x.ai==='chaosblade'&&!x.dead)){spawnChaos(e);e.chT=Math.max(480,900-(e.phase||0)*180);}}
+ _v15ub(e);};
+const _v15ue=updateEnemy;updateEnemy=function(e){if(e.ai!=='chaosblade'){_v15ue(e);return;}
+ e.anim++;if(e.flash>0)e.flash--;e.vx=0;e.vy=0;e.y=FLOOR-130+Math.sin(e.anim*0.08)*6;
+ if(!e.owner||e.owner.dead){e.dead=true;return;}if(--e.cT<=0)chaosBlast(e);};
+
+/* ---- 피해 판정: 혼돈의 검 타격 수 · 마기 보호막 · 성광 충전 · 벨카 시험 통과 ---- */
+const _v15dm=damageEnemy;damageEnemy=function(e,base,o){o=o||{};if(!e||e.dead)return 0;
+ if(e.ai==='chaosblade'){if(o.holy){chaosShatter(e);return 1;}if(G.t-(e.hitT||-9)<4)return 0;e.hitT=G.t;e.hits++;e.flash=4;
+  sparks(cxOf(e),cyOf(e),'#ff6070',5);sfx('hit');addNum(cxOf(e),e.y-8,`${e.hits}/${e.need}`,'#ff9aa0');if(e.hits>=e.need)chaosShatter(e);return 1;}
+ if(e.mia>0&&!o.holy){base*=0.1;e.miaHits=(e.miaHits||0)+1;if(G.t-(e.msgT||-99)>15){e.msgT=G.t;addNum(cxOf(e),e.y-6,'마기','#c070ff');}
+  if(e.miaHits>=(save.holy?60:25)){e.mia=0;addFx({kind:'banner',txt:'마기 보호막 붕괴',col:'#c070ff',life:60});sfx('boom');}}
+ const r=_v15dm(e,base,o);
+ if(r>0&&P&&save.holy&&o.melee&&G.mode!=='pvp')P.holyG=Math.min(100,(P.holyG||0)+0.5);
+ if(r>0&&e.boss&&e.idx===2&&!e.dead&&!e.trialDone&&e.hp<=e.maxHp*0.3+1){e.trialDone=1;killEnemy(e);}
+ return r;};
+const _v15ke=killEnemy;killEnemy=function(e){const learn=!!(e&&e.boss&&e.idx===2&&!e.dead&&G.mode!=='training'&&!save.holy);_v15ke(e);
+ if(learn){save.holy=1;writeSave(true);setTimeout(()=>toast(`✝ 성검전설 습득! [${keyName(bind('holy'))}] — 패링·타격으로 성광을 채워 사용`),1500);}};
+const _v15ps=parrySuccess;parrySuccess=function(src){const ht=!!(src&&src.holyTest);_v15ps(src);if(!P)return;
+ if(save.holy&&G.mode!=='pvp')P.holyG=Math.min(100,(P.holyG||0)+20);
+ if(ht){const b=enemies.find(x=>x.boss&&x.idx===2&&!x.dead);if(b&&b.brkMax!=null){b.brk=(b.brk||0)+50;b.brkHit=G.t;}addFx({kind:'text',x:cxOf(P),y:P.y-56,txt:'성검을 받아냈다!',col:'#ffe07a',life:60});}};
+
+/* ---- 성검의 시험: 무제한 재도전 ---- */
+const _v15pd=onPlayerDeath;onPlayerDeath=function(){
+ if(run&&run.rooms&&run.mode==='campaign'&&run.chapter===2){const r=run.rooms[run.cur];if(r&&r.type==='boss'&&!r.cleared){run.bossRetry=null;G.v15trial=1;}}
+ _v15pd();};
+if(typeof bossRetryPrompt==='function'){const _v15br=bossRetryPrompt;bossRetryPrompt=function(){_v15br();if(G.v15trial){G.v15trial=0;
+ const h=document.querySelector('#modal h2'),m=document.querySelector('#modal .muted');if(h)h.textContent='시험 실패';if(m)m.innerHTML='성검의 시험에는 끝이 없다. 몇 번이고 다시 도전할 수 있다.';}};}
+
+/* ---- ✝ 성검전설 (플레이어 공용 오의) ---- */
+DEFAULT_KEYS.holy='f';ACTION_LABELS.holy='성검전설';
+function ensureV15(){if(!save.settings.keys.holy)save.settings.keys.holy='f';if(save.chapter>=3&&!save.holy)save.holy=1;}
+function castHoly(){if(G.mode==='pvp'||!P||P.dead)return;if(!save.holy){deny('성검전설 미습득');return;}if((P.holyG||0)<100){deny('성광 부족');return;}if(P.sk||P.ul||G.v15holy)return;
+ P.holyG=0;P.inv=Math.max(P.inv,70);cancelAttack();const x=clamp(cxOf(P)+P.face*110,40,G.roomW-40);G.v15holy={x,t:0};
+ addFx({kind:'tmark',x,y:FLOOR-2,r:90,col:'#ffe07a',life:24});addFx({kind:'banner',txt:'✝ 성검전설',col:'#ffe07a',life:70});sfx('ult');G.flash={col:'#fff3c4',t:10};}
+function holyTick(){const h=G.v15holy;if(!h)return;h.t++;
+ if(h.t===24){for(const e of enemies){if(e.dead||Math.abs(cxOf(e)-h.x)>190)continue;
+   if(e.ai==='chaosblade'){chaosShatter(e);continue;}
+   e.barrier=0;if(e.ai==='wraith'){e.phasing=false;e.ph=100;}
+   if(e.mia>0){e.mia=0;e.stun=Math.max(e.stun||0,150);if(e.brkMax!=null){e.brk=(e.brk||0)+50;e.brkHit=G.t;}addFx({kind:'banner',txt:'✝ 성검전설 — 마기 정화!',col:'#ffe07a',life:80});}
+   damageEnemy(e,P.st.atk*8*(MONSTERS.has(e.type)?1.5:1),{heavy:true,kb:12,forceCrit:true,noStack:true,col:'#fff3c4',holy:true,dir:cxOf(e)>h.x?1:-1});}
+  shake(16);sfx('boom');signatureCut('#ffe07a',true);addFx({kind:'ring',x:h.x,y:FLOOR-30,r:20,max:220,col:'#ffe07a',life:24});addFx({kind:'rays',x:h.x,y:FLOOR-40,n:12,r:240,col:'#fff3c4',life:18,rot:0});}
+ if(h.t>=56)G.v15holy=null;}
+function drawHoly(){const h=G.v15holy;if(!h)return;const t=h.t,x=h.x,tip=t<24?-60+(FLOOR+70)*(t/24)*(t/24):FLOOR+10;
+ ctx.save();ctx.globalCompositeOperation='lighter';
+ if(t>=24){ctx.globalAlpha=Math.max(0,1-(t-24)/32);ctx.fillStyle='rgba(255,243,196,0.5)';ctx.fillRect(x-60,0,120,FLOOR);}
+ ctx.globalAlpha=t<24?1:Math.max(0,1-(t-24)/20);ctx.shadowColor='#ffd34d';ctx.shadowBlur=24;
+ ctx.fillStyle='#fff3c4';ctx.fillRect(x-13,tip-240,26,220);ctx.beginPath();ctx.moveTo(x-13,tip-20);ctx.lineTo(x,tip);ctx.lineTo(x+13,tip-20);ctx.fill();
+ ctx.fillStyle='#ffffff';ctx.fillRect(x-3,tip-236,6,214);ctx.fillStyle='#ffd34d';ctx.fillRect(x-44,tip-250,88,12);ctx.fillRect(x-6,tip-290,12,40);ctx.restore();}
+
+/* ---- 흑월야 화면 연출 ---- */
+const _v15fs=drawFxScreen;drawFxScreen=function(){_v15fs();const n=G.v15night||0;if(n<=0)return;const a=Math.min(1,n/30)*0.5;
+ ctx.save();ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,W,H);ctx.globalAlpha=Math.min(1,n/30);ctx.fillStyle='#000';ctx.shadowColor='#ff2040';ctx.shadowBlur=30;
+ ctx.beginPath();ctx.arc(W*0.72,96,46,0,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ff2040';ctx.lineWidth=3;ctx.stroke();ctx.restore();};
+
+/* ---- 연결: 업데이트 · 입력 · 그리기 · HUD · 터치 · 훈련장 ---- */
+const _v15uw=updateWorld;updateWorld=function(){_v15uw();holyTick();if(G.v15night>0)G.v15night--;};
+const _v15up=updatePlayer;updatePlayer=function(){_v15up();if(P&&!P.dead&&hit('holy'))castHoly();};
+const _v15sr=startRun;startRun=function(m,o){ensureV15();G.v15holy=null;G.v15night=0;_v15sr(m,o);};
+const _v15da=drawAllies;drawAllies=function(){_v15da();drawHoly();};
+const _v15de=drawEnemy;drawEnemy=function(e){if(e.ai==='chaosblade'){drawChaos(e);return;}_v15de(e);
+ if(e.mia>0&&!e.hide&&!e.dead){ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=`rgba(192,112,255,${0.5+0.3*Math.sin(G.t*0.15)})`;ctx.lineWidth=4;
+  ctx.beginPath();ctx.ellipse(cxOf(e),cyOf(e),e.w*1.1,e.h*0.7,0,0,7);ctx.stroke();ctx.fillStyle='rgba(120,40,200,0.12)';ctx.fill();ctx.restore();}};
+const _v15hud=drawHUD;drawHUD=function(){_v15hud();if(!P||!save.holy||G.mode==='pvp')return;const g=P.holyG||0,full=g>=100;
+ bar(12,135,216,4,g/100,full?((G.t>>3)%2?'#fff3c4':'#ffd34d'):'#c8a050','#2a2410');txt(`✝ [${keyName(bind('holy'))}]${full?' 준비':''}`,232,141,'#ffe07a',10,'left');};
+const _v15bt=buildTouch;buildTouch=function(){_v15bt();const T=$('touch');T.insertAdjacentHTML('beforeend','<button class="tb2 sm" data-a="holy" style="right:236px;bottom:40px">✝</button>');
+ const el=T.querySelector('[data-a="holy"]'),on=ev=>{ev.preventDefault();initAudio();touch.holy=true;touchHit.holy=true;el.classList.add('on');},off=ev=>{ev.preventDefault();touch.holy=false;el.classList.remove('on');};
+ el.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(k=>el.addEventListener(k,off));};
+const _v15rtr=refreshTrain;refreshTrain=function(){_v15rtr();const g=$('train').querySelectorAll('.tgrid')[3];if(g)g.insertAdjacentHTML('beforeend','<button class="btn sm" onclick="save.holy=1;P.holyG=100;toast(\'✝ 성광 충전\')">성광 충전</button>');};
+const _v15hub=showHub;showHub=function(){ensureV15();_v15hub();};
+
+/* ---- 버전 표기 ---- */
+const _v15ti=showTitle;showTitle=function(){_v15ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 3단계 · v15';};
+const _v15mn=showMenu;showMenu=function(){_v15mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 3단계 · v15 · 자동 저장 지원';};
+
+/* ── ⑦ 4단계 · 동료 · 인연 (v16) ── */
+/* ===================== 64. 완전판 4단계 (v16): 동료 · 호감도 · 인연 · 초상화 · 인연 삽화 ===================== */
+let mates=[];
+const TIERS=[{n:'안면',v:0},{n:'동료',v:100},{n:'신뢰',v:250},{n:'전우',v:450},{n:'인연',v:700}];
+const GIFTS=[{n:'꿀과자',ic:'🍯',cost:150,v:8},{n:'동방 화주',ic:'🍶',cost:250,v:12},{n:'꽃씨 꾸러미',ic:'🌱',cost:200,v:10},{n:'은세공 장식',ic:'💠',cost:400,v:18}];
+const MATE_INIT={eden:120,garret:100,sylva:100,belka:150};
+
+/* ---- 동료 외형 (HD 리그) ---- */
+PAL.m_eden={id:'m_eden',h:'#b8c0d0',s:'#f2c8a0',e:'#3a7aff',c:'#c8d0e0',d:'#3a5aa0',b:'#d6a93a',l:'#5a6478',f:'#2a3040',r:'#3a6ad0',p:'#3a6ad0'};
+PAL.m_gar={id:'m_gar',h:'#7a7e88',s:'#d8a070',e:'#111',c:'#6a6e78',d:'#3a3a42',b:'#8a6a3a',l:'#3a3a42',f:'#1a1a20',r:'#6a6e78'};
+PAL.m_syl={id:'m_syl',h:'#5ab878',s:'#f0d0b0',e:'#3aa060',c:'#2e6a3a',d:'#1a4022',b:'#d6c070',l:'#2a3a24',f:'#1a2414'};
+PAL.m_bel={id:'m_bel',h:'#d8dce8',v:'#1a1a22',p:'#c02020',s:'#e8c8a8',e:'#111',c:'#e0e4ec',d:'#8a8fa0',b:'#d6a93a',l:'#9aa0b0',f:'#3a3a48'};
+WPN.leafstaff={staff:true,len:30,col:'#4a3018',edge:'#7a5a30',gem:'#7dff8a'};
+Object.assign(HDV,{mate_eden:{m:{f:'m',hair:'novice_m',eye:'#3a7aff',tails:'pony',hc:'#f0d070'}},mate_garret:{m:{f:'m',hair:'novice_m',eye:'#5a3a20',tails:'band',hc:'#5a3a20'}},
+ mate_sylva:{m:{f:'m',hair:'mage_m',eye:'#3aa060',tails:'hair',hc:'#5ab878'}},mate_belka:{m:{f:'m',hair:'helm_m',eye:'#8a8a9a',tails:'plume',noFace:true}}});
+Object.assign(RIGDEF,{mate_eden:{body:'armor',w:'sword',sw:7,ww:5,skirt:5,flare:2},mate_garret:{body:'armor',w:'greatsword',sw:9,ww:7,skirt:3,flare:1,cape:'#4a4a52',capeHi:'#9aa0a8',lw:3},
+ mate_sylva:{body:'mrobe',w:'leafstaff',sw:6,ww:6,skirt:12,flare:4,cape:'#2a5a30',capeHi:'#7dff8a',glow:'#7dff8a'},mate_belka:{body:'armor',w:'holy',sw:8,ww:6,skirt:6,flare:2,cape:'#8a1a1a',capeHi:'#c03030',glow:'#ffd34d'}});
+
+/* ---- 동료 데이터 ---- */
+const MATES={
+ eden:{name:'에델',title:'견습 성기사',role:'수호 · 회복',col:'#7fb0ff',rig:'mate_eden',pal:PAL.m_eden,hp:0.9,atk:0.35,range:62,atkDur:22,atkCd:44,shield:true,arc:'v',skillCd:720,
+  skillN:'수호의 기도',skillD:'체력이 줄면 주인공을 회복하고 보호막을 채운다',bondN:'성기사의 방패',bondD:'큰 공격(최대 HP 18% 이상)을 대신 막는다 (20초마다)',unison:'성녀의 방벽',unisonMul:4,fav:0,
+  favLine:'꿀과자! 어떻게 아셨어요? 단장님 몰래 먹어야지…',giftLine:'고마워요! 소중히 할게요.',
+  talk:[['오늘도 무사히 돌아왔네요! 단장님께 보고할 게 많아요.','방패 드는 법은 단장님께 배웠어요. 칼은… 아직 연습 중이에요.','혈천교 놈들, 왜 하필 사당을 노렸을까요?'],
+   ['당신 뒤에 서 있으면 이상하게 무섭지가 않아요.','형제들이 마기에 먹혔을 때, 당신이 없었으면 전 주저앉았을 거예요.'],['맹세는 한 번이면 충분하대요. 그래도 매일 다시 하고 싶어요.']],
+  bond:{2:[['에델','저기… 처음 만났을 때 사실 무서웠어요. 부름을 듣고도 멀쩡한 사람이 정말 있을까 하고.'],['에델','근데 같이 싸우면서 알았어요. 당신은 칼을 무서워하지 않는 게 아니라, 무서워도 놓지 않는 사람이란 걸요.'],['에델','앞으로는 제가 뒤를 지킬게요. 견습이라도… 방패만큼은 자신 있거든요!'],['','— 인연 스킬 「성기사의 방패」 개방 —']],
+   4:[['','새벽의 사당. 에델이 검을 땅에 꽂고 무릎을 꿇는다.'],['에델','성기사의 맹세는 원래 단장님께 드려야 하는데… 오늘만은 당신께 드리고 싶어요.'],['에델','이 방패가 부서질 때까지, 당신의 등을 지키겠습니다.'],['','— 합격기 「성녀의 방벽」 개방 —']]}},
+ garret:{name:'가렛',title:'은빛 방패 대장',role:'돌격 · 강타',col:'#c8ccd8',rig:'mate_garret',pal:PAL.m_gar,hp:1.1,atk:0.55,range:76,atkDur:30,atkCd:60,two:true,arc:'v',skillCd:900,
+  skillN:'은빛 방패 돌격',skillD:'적에게 돌진해 경로의 적을 기절시킨다',bondN:'용병의 셈법',bondD:'동행 시 골드 획득 +10% · 돌격 기절 2배',unison:'은빛 방패 대돌격',unisonMul:7,fav:1,
+  favLine:'동방 화주라… 너, 사람 볼 줄 아는군.',giftLine:'받아 두지. 계약서엔 안 적는다.',
+  talk:[['돈 얘긴 나중에 하자고. 일단 살아서 돌아왔잖아.','은빛 방패 녀석들이 네 칼질 흉내를 내더군. 꼴불견이야.','혈천교한테 받은 빚은 이자까지 쳐서 돌려줄 거다.'],
+   ['너랑 다니면 장사가 안 돼. 공짜로 싸우게 되거든.','등 뒤는 걱정 마. 그게 내 일이니까.'],['다음 모닥불엔 네가 술 사라. 계약 조건이다.']],
+  bond:{2:[['가렛','이봐, 용병한테 제일 중요한 게 뭔지 알아? 돈? 아니. 등 뒤를 맡길 놈이야.'],['가렛','은빛 방패 녀석들이 너를 대장이라 부르기 시작했어. 기분 나쁘지만… 틀린 말은 아니군.'],['','— 인연 스킬 「용병의 셈법」 개방 —']],
+   4:[['','모닥불 너머로 은빛 방패의 깃발이 펄럭인다.'],['가렛','고향 마을이 혈천교한테 불탔을 때, 난 칼값만 셌지. 지킬 게 없으니까.'],['가렛','이젠 생겼다. 이 깃발 아래 모인 놈들, 그리고… 너.'],['가렛','계약은 끝이다, 친구. 이제부턴 공짜로 싸워 주지.'],['','— 합격기 「은빛 방패 대돌격」 개방 —']]}},
+ sylva:{name:'실바',title:'세계수의 드루이드',role:'원거리 · 제어',col:'#7dff8a',rig:'mate_sylva',pal:PAL.m_syl,hp:0.75,atk:0.4,range:300,atkDur:24,atkCd:56,caster:true,skillCd:840,
+  skillN:'뿌리 속박',skillD:'대상 주변 적을 뿌리로 묶는다 (보스는 둔화)',bondN:'세계수의 숨결',bondD:'속박 시 주인공 체력 8% 회복 · 성광 +15',unison:'세계수 개화',unisonMul:5,fav:2,
+  favLine:'꽃씨! 다음 봄엔 사당 앞에 심을게요.',giftLine:'고마워요, 숲이 기뻐해요.',
+  talk:[['숲이 조용해요. 좋은 뜻이에요… 아마도.','마기는 나쁜 게 아니에요. 갈 곳을 잃은 힘일 뿐이죠.','세계수 곁가지가 당신 얘길 해요. 칼이 따뜻하대요.'],
+   ['당신이 지치면 나무 그늘처럼 쉬어 가요.','당신 이름을 곁가지에게 알려줬어요. 괜찮죠?'],['실바넬이라고 불러도 돼요. 당신만.']],
+  bond:{2:[['실바','당신 칼에서 나는 소리, 숲이 좋아해요. 마기를 베는 소리는 새싹이 흙을 밀어내는 소리랑 닮았거든요.'],['실바','세계수의 숨결을 나눠 줄게요. 당신이 지치면, 숲이 대신 숨 쉬어 줄 거예요.'],['','— 인연 스킬 「세계수의 숨결」 개방 —']],
+   4:[['','대밀림 깊은 곳, 세계수의 곁가지가 빛을 머금고 있다.'],['실바','드루이드는 나무와 이름을 나눠요. 그래서 이름을 함부로 알려주지 않죠.'],['실바','제 진짜 이름은… 실바넬. 이 곁가지가 지어 준 이름이에요. 기억해 줄래요?'],['','— 합격기 「세계수 개화」 개방 —']]}},
+ belka:{name:'벨카',title:'성기사단장',role:'성검 · 일섬',col:'#ffd34d',rig:'mate_belka',pal:PAL.m_bel,hp:1.2,atk:0.6,range:70,atkDur:26,atkCd:52,arc:'h',skillCd:960,
+  skillN:'성광 일섬',skillD:'전방을 길게 가르는 성광 참격',bondN:'성광 공명',bondD:'일섬이 주인공의 성광을 30 채운다',unison:'쌍성검 전설',unisonMul:8,fav:3,
+  favLine:'…은세공. 검집에 달면 되겠군. 고맙다.',giftLine:'마음은 받겠다.',
+  talk:[['훈련은 했나? 칼끝이 어제보다 2푼 흔들렸다.','에델이 너를 많이 따르더군. 책임져라.','기사단은 무너졌지만, 맹세까지 무너진 건 아니다.'],
+   ['너와 칼을 맞대면 젊은 시절이 떠오른다. 나쁘지 않군.','성광이 네 쪽으로 기우는 게 느껴진다.'],['성검은 이제 우리 둘의 것이다. 함부로 부러뜨리지 마라.']],
+  bond:{2:[['벨카','시험은 끝났다고 했지. 그런데 너는 매일 나를 다시 시험하게 만드는군.'],['벨카','좋다. 성검의 빛을 나눠 쓰자. 내 칼이 빛날 때 네 성광도 함께 차오를 것이다.'],['','— 인연 스킬 「성광 공명」 개방 —']],
+   4:[['','노을 진 요새의 폐허. 벨카가 부러졌던 성검을 이어 붙인 검을 내민다.'],['벨카','기사단이 무너진 날, 나는 성검과 함께 죽을 생각이었다.'],['벨카','하지만 너를 보고 알았다. 맹세는 혼자 지키는 게 아니라 잇는 것이라는 걸.'],['벨카','받아라. 이제 성검전설은 우리 둘의 것이다.'],['','— 합격기 「쌍성검 전설」 개방 —']]}}};
+
+/* ---- 저장 · 인연 ---- */
+function ensureV16(){if(!save.comp)save.comp={};for(const k in MATES)if(!save.comp[k]&&NPCS[k]&&_ok13({c:NPCS[k].met}))save.comp[k]={aff:MATE_INIT[k],talk:-1};if(save.compSel===undefined)save.compSel='eden';}
+function mateTier(k){const a=(save.comp&&save.comp[k]&&save.comp[k].aff)||0;let t=0;for(let i=0;i<TIERS.length;i++)if(a>=TIERS[i].v)t=i;return t;}
+function addAff(k,n){const c=save.comp&&save.comp[k];if(!c)return;const o=mateTier(k);c.aff=Math.min(1000,c.aff+Math.round(n));const t=mateTier(k);
+ if(t>o){toast(`🤝 ${MATES[k].name} — 인연 「${TIERS[t].n}」 달성!`);if(t===2||t===4)c.evt=t;}writeSave(true);}
+function mateAllowed(k){const t=mateTier(k),m=G.mode;if(!m||m==='pvp'||m==='chal')return false;if(m==='raid'||m==='ancient')return t>=3;return t>=1;}
+
+/* ---- 전투: 생성 · AI · 피격 ---- */
+function trySpawnMate(){mates=[];if(!run)return;run.mate=null;const k=save.compSel;if(!k||!MATES[k]||!save.comp||!save.comp[k])return;
+ if(!mateAllowed(k)){if(G.mode==='raid'||G.mode==='ancient')toast(`🤝 ${MATES[k].name}은(는) 인연 「전우」부터 이곳에 동행할 수 있습니다`);return;}
+ const D=MATES[k],m={k,x:clamp(P.x-40,0,G.roomW-24),y:P.y,w:24,h:46,vx:0,vy:0,face:1,ground:false,onPlat:false,dropT:0,anim:0,atkT:0,atkDur:1,cd:30,skCd:240,inv:60,flash:0,down:0,guardCd:0,dash:0};
+ m.maxHp=Math.round(P.maxHp*D.hp);m.hp=m.maxHp;mates.push(m);run.mate=k;}
+function hurtMate(m,d){if(m.down||m.inv>0)return;d=Math.max(1,Math.round(d*DIFF[save.settings.diff].dmg*0.7));m.hp-=d;m.inv=30;m.flash=6;addNum(cxOf(m),m.y-8,d,'#ff8080');
+ if(m.hp<=0){m.hp=0;m.down=480;m.atkT=0;m.dash=0;addFx({kind:'text',x:cxOf(m),y:m.y-30,txt:`${MATES[m.k].name} 쓰러짐!`,col:'#ff8080',life:50});}}
+const txtM=(m,s)=>addFx({kind:'text',x:cxOf(m),y:m.y-30,txt:s,col:MATES[m.k].col,life:45});
+function mateHit(m,D){const A=P.st.atk*D.atk,tg=m.tg;
+ if(D.caster){if(!tg)return;const a=Math.atan2(cyOf(tg)-cyOf(m),cxOf(tg)-cxOf(m));shoot({kind:'orb',x:cxOf(m)-8,y:cyOf(m)-8,w:16,h:16,vx:Math.cos(a)*9,vy:Math.sin(a)*9,life:60,dmg:A,col:'#7dff8a',kb:2});sfx('shoot');return;}
+ const w=D.range+20,box={x:m.face>0?cxOf(m)-6:cxOf(m)+6-w,y:m.y-14,w,h:m.h+24};
+ for(const e of enemies)if(!e.dead&&ov(box,e))damageEnemy(e,A,{kb:D.two?7:3,dir:m.face,col:D.col,gm:true,noStack:true,ultMul:0.3,heavy:!!D.two});
+ addFx({kind:'eslash',x:cxOf(m),y:cyOf(m),face:m.face,r:D.range*0.8,col:D.col,life:10});sfx('slash');}
+function mateSkill(m,D,tg){const A=P.st.atk*D.atk,t=mateTier(m.k);
+ if(m.k==='eden'){if(P.hp>P.maxHp*0.7&&(P.sh||0)>=(P.shMax||0)*0.8)return false;healP(P.maxHp*0.12);if(P.shMax)P.sh=Math.min(P.shMax,(P.sh||0)+P.shMax*0.5);m.hp=Math.min(m.maxHp,m.hp+m.maxHp*0.2);
+  addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:70,col:'#7fb0ff',life:20});txtM(m,'수호의 기도');sfx('level');return true;}
+ if(!tg)return false;const d=Math.abs(cxOf(tg)-cxOf(m));
+ if(m.k==='garret'){if(d>280)return false;m.dash=14;m.dashHit=new Set();m.face=Math.sign(cxOf(tg)-cxOf(m))||1;txtM(m,'은빛 방패 돌격!');sfx('dash');return true;}
+ if(m.k==='sylva'){if(d>340)return false;for(const e of enemies)if(!e.dead&&dist(e,tg)<200){if(e.boss)e.slowT=Math.max(e.slowT||0,120);else e.stun=Math.max(e.stun||0,90);damageEnemy(e,A*1.2,{kb:0,gm:true,noStack:true,noUlt:true,col:'#7dff8a'});}
+  addFx({kind:'ring',x:cxOf(tg),y:FLOOR-6,r:10,max:200,col:'#7dff8a',life:22});for(let i=0;i<14;i++)parts.push({x:cxOf(tg)+rand(-160,160),y:FLOOR,vx:0,vy:-rand(1,3),life:24,max:24,col:pick(['#3a8a3a','#7dff8a','#5aa04a']),sz:3,g:0.05});
+  txtM(m,'뿌리 속박');if(t>=2){healP(P.maxHp*0.08);if(save.holy)P.holyG=Math.min(100,(P.holyG||0)+15);}sfx('skill');return true;}
+ if(m.k==='belka'){if(d>280)return false;m.face=Math.sign(cxOf(tg)-cxOf(m))||1;const box={x:m.face>0?cxOf(m):cxOf(m)-300,y:cyOf(m)-30,w:300,h:60};
+  for(const e of enemies)if(!e.dead&&ov(box,e))damageEnemy(e,A*4,{kb:9,heavy:true,dir:m.face,gm:true,noStack:true,col:'#ffd34d'});
+  addFx({kind:'line',x1:cxOf(m),y1:cyOf(m),x2:cxOf(m)+m.face*300,y2:cyOf(m),col:'#ffd34d',life:14,w:10});txtM(m,'성광 일섬');if(save.holy)P.holyG=Math.min(100,(P.holyG||0)+(t>=2?30:10));sfx('cut');shake(5);return true;}
+ return false;}
+function mateUnison(m){const D=MATES[m.k];addFx({kind:'banner',txt:`🤝 합격 — ${D.name} · ${D.unison}`,col:D.col,life:90});
+ for(const e of enemies)if(!e.dead&&Math.abs(cxOf(e)-cxOf(P))<420)damageEnemy(e,P.st.atk*D.unisonMul,{heavy:true,kb:10,gm:true,noStack:true,noUlt:true,col:D.col});
+ if(m.k==='eden'){healP(P.maxHp*0.3);P.inv=Math.max(P.inv,180);}if(m.k==='sylva'){healP(P.maxHp*0.15);if(save.holy)P.holyG=100;}if(m.k==='belka'&&save.holy)P.holyG=100;
+ addFx({kind:'ring',x:cxOf(m),y:cyOf(m),r:10,max:420,col:D.col,life:26});sparks(cxOf(m),cyOf(m),D.col,20);}
+function mateTick(m){const D=MATES[m.k];m.anim++;if(m.inv>0)m.inv--;if(m.flash>0)m.flash--;if(m.guardCd>0)m.guardCd--;if(m.dropT>0)m.dropT--;
+ if(m.down>0){m.vx*=0.8;physics(m);if(--m.down<=0){m.hp=Math.round(m.maxHp*0.5);m.inv=90;txtM(m,'복귀!');}return;}
+ if(m.skCd>0)m.skCd--;if(m.cd>0)m.cd--;
+ let tg=null,bd=1e9;for(const e of enemies){if(e.dead||e.hide)continue;const d=Math.abs(cxOf(e)-cxOf(m));if(d<560&&d<bd){bd=d;tg=e;}}m.tg=tg;
+ if(Math.abs(cxOf(P)-cxOf(m))>480){m.x=clamp(cxOf(P)-P.face*40-m.w/2,0,G.roomW-m.w);m.y=P.y+P.h-m.h;m.vy=0;burst(cxOf(m),cyOf(m),D.col,8,3,{g:0});}
+ if(m.dash>0){m.dash--;m.vx=m.face*14;for(const e of enemies)if(!e.dead&&!m.dashHit.has(e)&&ov(e,m)){m.dashHit.add(e);damageEnemy(e,P.st.atk*D.atk*3,{heavy:true,kb:8,dir:m.face,gm:true,noStack:true,col:D.col,stun:mateTier(m.k)>=2?80:40});}physics(m);return;}
+ const tx=tg?cxOf(tg)+(Math.sign(cxOf(m)-cxOf(tg))||-P.face)*(D.caster?Math.min(260,D.range*0.8):D.range*0.6):cxOf(P)-P.face*46,dx=tx-cxOf(m);
+ const want=Math.abs(dx)>8?Math.sign(dx)*Math.min(4,Math.abs(dx)*0.1+1):0;if(m.atkT>0)m.vx*=0.7;else m.vx+=(want-m.vx)*0.3;
+ m.face=tg?(Math.sign(cxOf(tg)-cxOf(m))||m.face):(Math.abs(m.vx)>0.5?Math.sign(m.vx):P.face);
+ if(m.ground&&P.ground&&P.y+P.h<m.y+m.h-60&&Math.abs(cxOf(P)-cxOf(m))<160){m.vy=-12;m.ground=false;}
+ if(m.onPlat&&m.ground&&P.y+P.h>m.y+m.h+40){m.dropT=16;m.y+=3;}
+ if(tg&&m.cd<=0&&m.atkT<=0&&(D.caster?dist(tg,m)<D.range+40:Math.abs(cxOf(tg)-cxOf(m))<D.range+tg.w/2&&Math.abs(tg.y+tg.h-(m.y+m.h))<80)){m.atkT=m.atkDur=D.atkDur;m.cd=D.atkCd;m.hit=false;}
+ if(m.atkT>0){m.atkT--;if(!m.hit&&m.atkT<=D.atkDur*0.5){m.hit=true;mateHit(m,D);}}
+ if(m.skCd<=0)m.skCd=mateSkill(m,D,tg)?Math.round(D.skillCd*(mateTier(m.k)>=3?0.8:1)):30;
+ physics(m);}
+function matePose(m){const D=MATES[m.k],p=poseBase();p.wind=clamp(-m.vx*0.5,-3,3);
+ if(!m.ground)poseAir(p,m.vy);else if(Math.abs(m.vx)>0.6)poseRun(p,m.anim*0.3,Math.min(1,Math.abs(m.vx)/4));
+ if(D.two){p.two=true;p.w=-1.05;p.hands=[[2.5,3.5],[0,4]];}if(D.caster)p.w=-1.25;
+ if(D.shield&&m.atkT<=0){p.shield=true;p.wHand=1;p.w=-1.1;p.hands=[[5,3.5],[-1,3]];p.two=false;}
+ if(m.dash>0){p.feet=[[8,0],[-6,0]];p.hip=[1,-9.5];p.lean=0.5;p.hands=[[9,2],[-3,5]];p.w=0.1;p.two=false;}
+ if(m.atkT>0){const pr=1-m.atkT/m.atkDur;if(D.caster){p.hands=[[7,-1],[-2,3]];p.w=-0.6;}else poseAttack(p,D.arc||'v',pr,{two:!!D.two});}
+ p.gender='m';return p;}
+function drawMates(){for(const m of mates){const D=MATES[m.k],fy=m.y+m.h,R=rigRender(D.rig,D.pal,matePose(m),64,m.flash>0?'#ff6060':null,0.5);
+ rigBlit(R,cxOf(m),fy,m.face,{rot:m.down>0?-1.5*m.face:0,alpha:m.down>0?0.6:(m.inv>0&&m.inv<60&&G.t%6<2?0.5:null)});if(!m.down)rigGlow(R,cxOf(m),fy,m.face,R.glow);
+ txt(D.name,cxOf(m),m.y-14,D.col,10,'center');bar(m.x-4,m.y-10,m.w+8,3,m.hp/m.maxHp,'#6dff8a','rgba(0,0,0,.6)');
+ if(m.down>0){bar(m.x-4,m.y-20,m.w+8,3,1-m.down/480,'#ffd77a','rgba(0,0,0,.6)');txt('쓰러짐',cxOf(m),m.y-24,'#ff9a9a',10,'center');}}}
+
+/* ---- 연결 ---- */
+const _v16sr=startRun;startRun=function(m,o){mates=[];G.v16spawn=true;_v16sr(m,o);};
+const _v16uw=updateWorld;updateWorld=function(){if(G.v16spawn&&run&&P){G.v16spawn=false;ensureV16();trySpawnMate();}_v16uw();if(P)for(const m of mates)mateTick(m);};
+const _v16gh=goHub;goHub=function(){mates=[];_v16gh();};
+const _v16er=enterRoom;enterRoom=function(id,from){_v16er(id,from);for(const m of mates){m.x=clamp(P.x-30,0,G.roomW-m.w);m.y=P.y+P.h-m.h;m.vx=m.vy=0;}};
+const _v16da=drawAllies;drawAllies=function(){drawMates();_v16da();};
+const _v16eh=eHit;eHit=function(e,box,mult){_v16eh(e,box,mult);for(const m of mates)if(!m.down&&ov(box,m))hurtMate(m,e.atk*(mult||1)*0.8);};
+const _v16upj=updateProjs;updateProjs=function(){if(mates.length)for(const p of projs){if(p.friend||p.dead||p.delay>0)continue;for(const m of mates)if(!m.down&&m.inv<=0&&ov(p,m)){hurtMate(m,p.dmg*0.8);if(!p.persist){p.dead=true;break;}}}_v16upj();};
+const _v16hp=hurtPlayer;hurtPlayer=function(dmg,src){
+ if(P&&!P.dead&&!G.v9wipe&&P.inv<=0&&!(P.parryT>0)&&!P.guard){const m=mates.find(x=>x.k==='eden'&&!x.down);
+  if(m&&mateTier('eden')>=2&&!(m.guardCd>0)&&dmg*DIFF[save.settings.diff].dmg*(1-P.st.def)>=P.maxHp*0.18){m.guardCd=1200;P.inv=40;
+   m.x=clamp(cxOf(P)+(src?(Math.sign(cxOf(src)-cxOf(P))||P.face):P.face)*20-m.w/2,0,G.roomW-m.w);sparks(cxOf(m),cyOf(m),'#cfe0ff',12);sfx('parry');
+   addFx({kind:'text',x:cxOf(P),y:P.y-50,txt:'에델의 방패!',col:'#7fb0ff',life:50});hurtMate(m,dmg*0.3);return false;}}
+ return _v16hp(dmg,src);};
+const _v16ru=releaseUlt;releaseUlt=function(S){_v16ru(S);const m=mates.find(x=>!x.down);if(m&&mateTier(m.k)>=4)mateUnison(m);};
+const _v16cs=calcStats;calcStats=function(){const r=_v16cs();if(run&&run.mate==='garret'&&mates.some(m=>m.k==='garret')&&mateTier('garret')>=2)r.gold+=0.1;return r;};
+const _v16ke=killEnemy;killEnemy=function(e){const b=!!(e&&e.boss&&!e.dead);_v16ke(e);if(b&&run&&run.mate&&G.mode!=='training')addAff(run.mate,6);};
+const _v16res=showResult;showResult=function(w,msg){const k=run&&run.mate&&G.mode!=='training'?run.mate:null;_v16res(w,msg);
+ if(k){addAff(k,w?10:4);const t=document.querySelector('#modal .muted.sm');if(t)t.insertAdjacentHTML('beforebegin',`<div style="color:${MATES[k].col};margin-top:6px">🤝 ${MATES[k].name} 호감도 +${w?10:4} · 인연 「${TIERS[mateTier(k)].n}」</div>`);}};
+
+/* ---- 초상화 (48×48 도트 흉상) ---- */
+function pFace(skin,eye,o){o=o||{};const ey=o.ey||21;rcirc(24,20,9,skin);rpoly([[15,20],[33,20],[31,27],[27,31],[21,31],[17,27]],skin);rr(15,21,2,6,sh(skin,-0.12));rr(31,21,2,6,sh(skin,-0.08));
+ rr(18,ey,4,3,'#ffffff');rr(26,ey,4,3,'#ffffff');rr(19,ey,2,3,eye);rr(27,ey,2,3,eye);rr(19,ey,1,1,'#ffffff');rr(27,ey,1,1,'#ffffff');rr(18,ey-1,4,1,'#2a1a22');rr(26,ey-1,4,1,'#2a1a22');
+ rr(18,ey-3,4,1,o.brow);rr(26,ey-3,4,1,o.brow);if(o.stern){rr(21,ey-2,1,1,o.brow);rr(26,ey-2,1,1,o.brow);}
+ rr(24,ey+3,1,2,sh(skin,-0.22));rr(22,28,4,1,o.mouth||'#a8505a');if(o.blush){rr(17,25,2,1,'#f0a0a0');rr(29,25,2,1,'#f0a0a0');}}
+function bustEden(){const hair='#f0d070',hd=sh(hair,-0.3),skin='#f2c8a0';
+ rpoly([[33,12],[41,10],[43,28],[37,33],[34,22]],hair);rpoly([[36,14],[41,12],[42,26],[38,28]],hd);rcirc(24,15,11,hair);
+ rpoly([[2,48],[6,37],[16,33],[32,33],[42,37],[46,48]],'#c8d0e0');rpoly([[2,48],[6,37],[13,34],[11,48]],'#9aa4b8');rcirc(9,38,6,'#dfe6f2');rcirc(39,38,6,'#b8c0d0');rr(6,36,6,1,'#ffffff');
+ rpoly([[17,34],[31,34],[29,48],[19,48]],'#3a5aa0');rr(23,37,2,9,'#d6a93a');rr(20,40,8,2,'#d6a93a');rr(20,28,8,6,sh(skin,-0.15));
+ pFace(skin,'#3a7aff',{brow:hd,blush:true,mouth:'#c86070'});rr(19,25,1,1,'#d89070');rr(29,25,1,1,'#d89070');rr(18,26,1,1,'#d89070');
+ rpoly([[13,11],[35,11],[34,17],[31,15],[28,18],[24,14],[20,18],[17,15],[14,18]],hair);rr(13,11,22,2,'#3a6ad0');rr(14,17,2,8,hair);rr(32,17,2,6,hair);}
+function bustGarret(){const hair='#5a3a20',beard='#4a2e18',skin='#d8a070';rcirc(24,14,10.5,hair);
+ rpoly([[0,48],[3,36],[14,31],[34,31],[45,36],[48,48]],'#6a5a48');for(let i=0;i<14;i++)rr(3+i*3,33+(i%3),2,2,'#8a7a62');
+ rcirc(9,37,6,'#8a8e98');rcirc(39,37,6,'#7a7e88');rr(5,35,7,1,'#c8ccd8');rpoly([[16,34],[32,34],[31,48],[17,48]],'#5a5e68');
+ rpoly([[20,37],[28,37],[28,42],[24,46],[20,42]],'#c8ccd8');rr(23,38,2,6,'#3a6ad0');rr(20,27,8,6,sh(skin,-0.15));
+ pFace(skin,'#5a3a20',{brow:'#3a2410',stern:true,mouth:'#7a3a30'});
+ rpoly([[16,24],[32,24],[31,30],[27,34],[21,34],[17,30]],beard);rr(21,27,6,2,sh(skin,-0.1));rr(22,28,4,1,'#7a3a30');rr(20,26,8,1,beard);rline(29,15,31,23,1,'#a85a50');
+ rpoly([[13,10],[35,10],[34,15],[28,13],[20,14],[14,16]],hair);rr(14,15,2,6,hair);rr(32,15,2,6,hair);}
+function bustSylva(){const hair='#5ab878',hd=sh(hair,-0.3),skin='#f0d0b0';
+ rpoly([[11,12],[37,12],[42,46],[6,46]],hd);rpoly([[13,12],[35,12],[38,44],[10,44]],hair);
+ rpoly([[2,48],[7,38],[16,34],[32,34],[41,38],[46,48]],'#2e6a3a');rpoly([[2,48],[7,38],[13,35],[11,48]],'#1a4022');rpoly([[18,34],[30,34],[24,42]],'#d6c070');rr(23,35,2,2,'#7dff8a');
+ rr(20,28,8,6,sh(skin,-0.15));rpoly([[15,19],[8,13],[11,20],[15,24]],skin);rpoly([[33,19],[40,13],[37,20],[33,24]],skin);
+ pFace(skin,'#3aa060',{brow:hd,blush:true});
+ rpoly([[13,11],[35,11],[35,19],[31,14],[26,16],[22,13],[17,17],[13,20]],hair);rr(13,17,2,14,hair);rr(33,16,2,14,hair);
+ rline(13,11,35,11,1,'#3a7a3a');for(const x of[16,21,27,32])rr(x,9,2,2,'#5aa04a');rcirc(34,10,2.2,'#ff9ccf');rr(34,10,1,1,'#ffe07a');}
+function bustBelka(){const hair='#e0e2ea',hd='#a8acb8',skin='#e8c8a8';
+ rpoly([[1,48],[4,34],[12,30],[36,30],[44,34],[47,48]],'#8a1a1a');rpoly([[5,48],[8,37],[16,33],[32,33],[40,37],[43,48]],'#e0e4ec');rpoly([[5,48],[8,37],[14,34],[12,48]],'#a8aebc');
+ rcirc(10,37,6,'#f0f2f8');rcirc(38,37,6,'#c8ccd8');rr(5,35,10,1,'#d6a93a');rr(33,35,10,1,'#d6a93a');rr(18,30,12,5,'#c8ccd8');rr(18,30,12,1,'#d6a93a');
+ rpoly([[21,38],[27,38],[26,46],[22,46]],'#d6a93a');rr(23,39,2,6,'#fff3c4');rcirc(24,15,10.5,hair);
+ pFace(skin,'#7a7e8a',{brow:'#6a6e7a',stern:true,mouth:'#9a5a5a'});rline(19,23,28,25,1,'#b07068');
+ rpoly([[13,10],[35,10],[35,16],[30,13],[24,15],[18,12],[14,17]],hair);rr(13,14,2,8,hd);rr(33,13,2,6,hair);}
+function bustKeeper(){const skin='#d8b090';rpoly([[2,48],[6,38],[16,34],[32,34],[42,38],[46,48]],'#6a6a72');rpoly([[18,34],[24,44],[30,34]],'#e8e0d0');
+ rr(20,28,8,6,sh(skin,-0.15));pFace(skin,'#3a2a20',{brow:'#e8e8e8',ey:22});
+ rpoly([[16,26],[32,26],[30,38],[24,46],[18,38]],'#ececf0');rr(22,28,4,1,'#8a5a50');rpoly([[18,25],[24,27],[30,25],[30,27],[18,27]],'#d8d8e0');
+ rpoly([[4,14],[24,3],[44,14],[38,15],[24,10],[10,15]],'#c8a060');rr(10,13,28,2,'#8a6a3a');}
+const PORT={},BUST={eden:bustEden,garret:bustGarret,sylva:bustSylva,belka:bustBelka,keeper:bustKeeper},
+ PBG={eden:['#1a2a4a','#3a5a8a'],garret:['#2a2420','#5a4a38'],sylva:['#0e2a1a','#2e6a3a'],belka:['#3a1a1a','#8a5a3a'],keeper:['#1a1a24','#3a3a4a']};
+function outline48(c){const g=c.getContext('2d'),id=g.getImageData(0,0,48,48),d=id.data,o=new Uint8ClampedArray(d);
+ for(let y=0;y<48;y++)for(let x=0;x<48;x++){const q=(y*48+x)*4;if(d[q+3])continue;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const X=x+dx,Y=y+dy;if(X<0||Y<0||X>=48||Y>=48)continue;if(d[(Y*48+X)*4+3]>0){o[q]=8;o[q+1]=6;o[q+2]=14;o[q+3]=255;break;}}}
+ g.putImageData(new ImageData(o,48,48),0,0);}
+function portraitURL(k){if(PORT[k])return PORT[k];const f=mkC(48,48);RG=f.getContext('2d');BUST[k]();outline48(f);
+ const c=mkC(48,48),g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,48);gr.addColorStop(0,PBG[k][0]);gr.addColorStop(1,PBG[k][1]);g.fillStyle=gr;g.fillRect(0,0,48,48);g.drawImage(f,0,0);return PORT[k]=c.toDataURL();}
+const SPK={'에델':'eden','가렛':'garret','실바':'sylva','벨카':'belka','성기사단장 벨카':'belka','사당지기':'keeper'};
+const _v16rd=renderDialog;renderDialog=function(){_v16rd();if(!dlg)return;const k=SPK[dlg.lines[dlg.i][0]],d=document.querySelector('#modal .dialog');
+ if(k&&d)d.insertAdjacentHTML('afterbegin',`<img src="${portraitURL(k)}" style="position:absolute;left:10px;bottom:100%;margin-bottom:6px;width:120px;height:120px;image-rendering:pixelated;border:2px solid #ffd77a;background:#0b0a14">`);};
+
+/* ---- 인연 삽화 (240×135 시네마틱) ---- */
+function cgFig(x,yb,o){const k=o.kneel,by=yb-(k?10:16);if(!k){cR(x-2,yb-6,2,6,o.legs);cR(x+1,yb-6,2,6,o.legs);}else cR(x-3,yb-3,6,3,o.legs);
+ cR(x-3,by,6,k?7:10,o.top);cR(x-3,by,6,1,shade(o.top,0.3));cR(x-2,by-5,5,5,o.skin);cR(x-3,by-6,6,2,o.hair);cR(o.face>0?x-3:x+2,by-5,1,3,o.hair);if(o.extra)o.extra(x,by);}
+Object.assign(CGS,{
+ bond_eden:{s(){cSky('#2a1a3a','#ffb080',100);cCirc(170,92,16,'#ffd8a0');for(let x=0;x<240;x++)cR(x,96-Math.sin(x*0.03)*5,1,10,'#3a2030');
+   cR(60,40,4,62,'#a01828');cR(96,40,4,62,'#a01828');cR(52,36,52,5,'#c02030');cR(56,46,44,3,'#801018');cR(0,100,240,35,'#2a1a20');cR(70,100,30,35,'#4a3a40');
+   cR(137,80,2,22,'#e8eef6');cR(135,80,6,2,'#d6a93a');
+   cgFig(130,102,{kneel:1,face:1,hair:'#f0d070',skin:'#f2c8a0',top:'#c8d0e0',legs:'#3a5aa0',extra:(x,by)=>{cR(x-6,by-4,3,8,'#f0d070');cR(x-1,by+1,2,5,'#3a5aa0');}});},
+  d(t){cGlow(170,92,34+Math.sin(t*0.05)*3,'#ffb080',0.35);for(let i=0;i<16;i++){const k=(t*0.5+i*29)%270;cR(250-k,(i*23+k*0.4)%110,2,1,i%2?'#f5a3c7':'#ffd0e0');}}},
+ bond_garret:{s(){const R=mulberry(77);cSky('#05070f','#1a2238',100);for(let i=0;i<60;i++)cR(R()*240,R()*70,1,1,R()<0.3?'#ffffff':'#6a7aa0');
+   for(let x=0;x<240;x++)cR(x,80-Math.abs(Math.sin(x*0.02))*20,1,30,'#0e1220');cR(0,100,240,35,'#14100c');
+   for(const tx of[30,60])for(let y=0;y<16;y++)cR(tx-y*0.8,84+y,y*1.6+1,1,'#3a3428');
+   cR(190,40,2,62,'#5a4a3a');cR(192,42,22,14,'#c8ccd8');cR(200,45,6,7,'#3a6ad0');cR(84,98,30,4,'#4a3020');
+   cgFig(92,100,{kneel:1,face:1,hair:'#5a3a20',skin:'#d8a070',top:'#6a5a48',legs:'#3a3a42',extra:(x,by)=>{cR(x+3,by+2,2,3,'#c8a060');cR(x-2,by-1,5,2,'#4a2e18');}});
+   cgFig(150,100,{kneel:1,face:-1,hair:'#2a2834',skin:'#c89a70',top:'#3a3a4a',legs:'#1a1a22'});},
+  d(t){const f=Math.sin(t*0.4)*2;cGlow(120,96,42+f*2,'#ff8a3c',0.35);for(let i=0;i<5;i++){const h=8+((i*7+t)%5)+f;cR(116+i*2,99-h,2,h,i%2?'#ffd060':'#ff7a2a');}
+   for(let i=0;i<10;i++){const a=(t*0.8+i*17)%60;cR(118+Math.sin(a*0.2+i)*6,96-a,1,1,i%2?'#ffb030':'#ffe07a');}}},
+ bond_sylva:{s(){const R=mulberry(88);cSky('#0a2a1a','#3a7a4a',135);
+   for(let x=0;x<240;x++){const y=40+Math.sin(x*0.02)*12;cR(x,y,1,14,'#3a2a1a');cR(x,y,1,2,'#6a4a2a');}
+   for(let i=0;i<40;i++)cCirc(R()*240,20+R()*40,3+R()*5,pick(['#2e6a3a','#3a8a4a','#5ab878']));
+   for(let i=0;i<8;i++){const x=R()*240;for(let y=50;y<70+R()*30;y++)cR(x+Math.sin(y*0.3)*1,y,1,1,'#3a7a3a');}
+   cR(60,104,120,8,'#3a2a1a');cR(0,112,240,23,'#14200e');
+   cgFig(120,104,{face:1,hair:'#5ab878',skin:'#f0d0b0',top:'#2e6a3a',legs:'#1a4022',extra:(x,by)=>{cR(x+4,by-10,1,14,'#4a3018');cR(x-5,by-4,2,10,'#5ab878');}});},
+  d(t){cGlow(124,79,8+Math.sin(t*0.1)*3,'#7dff8a',0.8);for(let i=0;i<24;i++){const a=(t*0.4+i*13)%130;cR((i*37)%240+Math.sin(a*0.05+i)*4,134-a,1,1,i%3?'#b8ffb0':'#ffe07a');}}},
+ bond_belka:{s(){cSky('#2a0a14','#ff8a4a',96);cCirc(120,70,22,'#ffc070');
+   for(const[x,w,h]of[[10,30,50],[50,20,34],[170,40,60],[214,24,40]]){cR(x,104-h,w,h,'#1a0a10');for(let i=0;i<w;i+=6)cR(x+i,104-h-4,4,4,'#1a0a10');}cR(0,104,240,31,'#140808');
+   cgFig(110,104,{face:1,hair:'#e0e2ea',skin:'#e8c8a8',top:'#e0e4ec',legs:'#9aa0b0',extra:(x,by)=>{cR(x-5,by,3,12,'#8a1a1a');}});
+   cgFig(134,104,{face:-1,hair:'#2a2834',skin:'#c89a70',top:'#3a3a4a',legs:'#1a1a22'});cR(113,90,20,2,'#fff3c4');cR(111,89,3,4,'#d6a93a');},
+  d(t){cGlow(123,91,8+Math.sin(t*0.15)*3,'#ffd34d',0.6);for(let i=0;i<12;i++){const a=(t*0.3+i*21)%120;cR((i*41)%240,30+a*0.6,1,1,'#ffc070');}}}});
+Object.assign(CG_TITLE,{bond_eden:'인연 · 새벽의 맹세',bond_garret:'인연 · 은빛 방패의 모닥불',bond_sylva:'인연 · 세계수의 이름',bond_belka:'인연 · 성검의 계승'});
+
+/* ---- 🤝 동료 · 인연 화면 ---- */
+function selMate(k){save.compSel=save.compSel===k?null:k;sfx('select');writeSave(true);showMates();}
+function talkMate(k){const D=MATES[k],c=save.comp[k];if(!c||c.talk===save.rec.runs)return;c.talk=save.rec.runs;const t=mateTier(k);
+ addAff(k,6);showDialog([[D.name,pick(D.talk[t>=4?2:t>=2?1:0])]],showMates);}
+function giftMate(k,i){const D=MATES[k],g=GIFTS[i];if(!save.comp[k]||save.gold<g.cost)return;save.gold-=g.cost;const fav=D.fav===i;addAff(k,g.v*(fav?2.5:1));sfx(fav?'level':'coin');
+ showDialog([[D.name,fav?D.favLine:D.giftLine]],showMates);}
+function showMates(){ensureV16();G.back=showHub;const runs=save.rec.runs;
+ const cards=Object.keys(MATES).map(k=>{const D=MATES[k],c=save.comp[k];
+  if(!c)return`<div class="card lock" style="padding:8px"><div class="ct">???</div><div class="kv sm">아직 만나지 못한 인물</div></div>`;
+  const t=mateTier(k),nx=TIERS[t+1],sel=save.compSel===k,talked=c.talk===runs,pr=nx?(c.aff-TIERS[t].v)/(nx.v-TIERS[t].v):1;
+  return`<div class="card ${sel?'sel':''}" style="padding:8px;display:flex;gap:10px"><img src="${portraitURL(k)}" style="width:96px;height:96px;flex:none;image-rendering:pixelated;border:2px solid ${D.col}">
+  <div style="flex:1;min-width:0"><div class="ct">${D.name} <span class="muted sm">${D.title} · ${D.role}</span></div>
+  <div class="kv sm">인연 <b style="color:${D.col}">${TIERS[t].n}</b> · 호감도 ${c.aff}${nx?` / ${nx.v}`:''}</div><div style="height:5px;background:#222;margin:3px 0"><div style="height:5px;width:${Math.round(pr*100)}%;background:${D.col}"></div></div>
+  <div class="kv sm">⚔ ${D.skillN} — ${D.skillD}</div><div class="kv sm ${t>=2?'':'muted'}">${t>=2?'✔':'🔒 신뢰'} ${D.bondN} — ${D.bondD}</div>
+  <div class="kv sm ${t>=4?'':'muted'}">${t>=4?'✔':'🔒 인연'} 합격기 ${D.unison}</div><div class="kv sm muted">${t>=3?'✔ 레이드 · 고대 던전 동행 가능':'레이드 · 고대 던전: 「전우」부터'}</div>
+  <div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap"><button class="btn sm ${sel?'gold':''}" onclick="selMate('${k}')" ${t>=1?'':'disabled'}>${sel?'✔ 동행 중':'동행'}</button>
+  <button class="btn sm" onclick="talkMate('${k}')" ${talked?'disabled':''}>💬 대화${talked?' (탐험 후)':''}</button>${GIFTS.map((g,i)=>`<button class="btn sm" title="${g.n}" onclick="giftMate('${k}',${i})" ${save.gold>=g.cost?'':'disabled'}>${g.ic}${g.cost}</button>`).join('')}</div></div></div>`;}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>🤝 동료 · 인연</h2><div class="row"><span>💰 ${save.gold.toLocaleString()} G</span><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div class="muted sm" style="margin-bottom:6px">동료 한 명을 데리고 출전합니다. 인연: 안면 → 동료(동행) → 신뢰(인연 스킬 · 이벤트) → 전우(레이드 · 고대 던전) → 인연(합격기 · 삽화). 좋아하는 선물은 효과 2.5배.</div>
+ <div class="scroll" style="flex:1"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${cards}</div></div>
+ <div class="muted sm">선물: ${GIFTS.map(g=>`${g.ic} ${g.n} ${g.cost}G`).join(' · ')}</div></div>`);}
+const _v16hub=showHub;showHub=function(){ensureV16();_v16hub();const L=document.querySelector('#ui .hub-left');
+ if(L&&L.lastElementChild){const k=save.compSel;L.lastElementChild.insertAdjacentHTML('beforebegin',`<button class="btn" style="grid-column:1/-1" onclick="showMates()">🤝 동료 · 인연 <span class="muted">${k&&MATES[k]?`동행: ${MATES[k].name} · ${TIERS[mateTier(k)].n}`:'동행 없음'}</span></button>`);}
+ const k=Object.keys(save.comp||{}).find(x=>save.comp[x].evt);if(k){const c=save.comp[k],ev=c.evt;c.evt=0;writeSave(true);const lines=MATES[k].bond[ev];if(lines)showDialog(lines,showHub,ev===4?'bond_'+k:null);}};
+
+/* ---- 버전 표기 ---- */
+const _v16ti=showTitle;showTitle=function(){_v16ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 4단계 · v16';};
+const _v16mn=showMenu;showMenu=function(){_v16mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='완전판 4단계 · v16 · 자동 저장 지원';};
+
+/* ── ⑧ 5단계 앞부분 · 새 맵 5종 (v17) ── */
+/* ===================== 65. 완전판 5단계 (v17): 아르디아 탐험 — 월드맵 · 5지역 · 새 맵 5종 · 지역 보스 10 · 채집 · 숨은 보물 · 공방 ===================== */
+/* ---- 새 맵 5종 ---- */
+function pine(x,base,h,col){for(let i=0;i<h;i++){const w=Math.round(i*0.32)+((i%6<3)?1:0);rr(x-w,base-h+i,w*2+1,1,col);}rr(x-1,base,3,8,col);}
+function addRegionTheme(T,BG){const i=THEMES.length;THEMES.push(T);BGDEF[i]=BG;POOLS[i]=['thug'];return i;}
+const TH_PORT=addRegionTheme({name:'하스벨 항구 외곽',sky:['#2a3a6a','#f8a878'],moon:'#ffe0b0',far:'#3a2a1a',near:'#6a4a2a',ground:'#5a5248',top:'#c8b890',pcol:'#ffd77a'},
+ {moon:[380,150,'#ffe0b0'],build(){const R=mulberry(1606),sky=bgCanvas();useG(sky);bands(['#2a3a6a','#4a6aa0','#8aa8d0','#f0c8a0','#f8a878'],176);
+  ditherCirc(380,150,24,'#ffd0a0');rcirc(380,150,16,'#fff0d0');for(let i=0;i<6;i++)cloud(R()*BGW,40+R()*60,6+R()*6,'#c8b8d8','#f0e0f0','#9a8ab8',R);
+  rr(0,176,BGW,94,'#3a5a8a');for(let y=178;y<240;y+=3)for(let x=(y*13)%17;x<BGW;x+=19)rr(x,y,6,1,'#5a7aaa');for(let y=178;y<230;y+=2)rr(372+((y*7)%9)-4,y,Math.max(2,16-((y-178)>>3)),1,'#f8d8a8');
+  const far=bgCanvas();useG(far);for(const sx of[60,250,400])wrapX(sx,40,o=>{rpoly([[o,184],[o+36,184],[o+30,192],[o+6,192]],'#3a2a1a');rr(o+17,148,2,36,'#2a1a10');rpoly([[o+19,150],[o+34,168],[o+19,178]],'#e8e0d0');rpoly([[o+17,154],[o+6,172],[o+17,178]],'#d8d0c0');});
+  const mid=bgCanvas();useG(mid);for(let i=0;i<9;i++){const x=i*54+R()*10,h=Math.round(40+R()*40),w=40,east=i%3===1,lit=[];for(let k=0;k<12;k++)lit.push(R()<0.6);
+   wrapX(x,w+10,o=>{rr(o,232-h,w,h,east?'#6a4a3a':'#8a7a6a');let k=0;for(let wy=232-h+8;wy<224;wy+=12)for(let wx=o+6;wx<o+w-6;wx+=12)rr(wx,wy,4,5,lit[(k++)%12]?'#ffd77a':'#2a2a3a');
+    if(east){rpoly([[o-6,232-h],[o+w+6,232-h],[o+w-2,232-h-10],[o+2,232-h-10]],'#2a3a4a');rr(o-8,232-h-3,4,3,'#2a3a4a');rr(o+w+4,232-h-3,4,3,'#2a3a4a');}else rpoly([[o-3,232-h],[o+w/2,232-h-16],[o+w+3,232-h]],'#8a3a2a');});}
+  const near=bgCanvas();useG(near);for(let i=0;i<6;i++){const x=i*80+R()*30;wrapX(x,30,o=>{rr(o,222,14,13,'#6a4a2a');rr(o,226,14,1,'#3a2a1a');rr(o+16,218,12,17,'#7a5a3a');rr(o+16,224,12,1,'#4a3a2a');});}
+  for(let x=0;x<BGW;x+=2){const y=Math.round(22+Math.sin(x/BGW*6.283*3)*6);rr(x,y,2,1,'#2a2a2a');if(x%40===0){rr(x-2,y+1,5,7,'#d0302e');rr(x-1,y+3,3,3,'#ffd77a');}}
+  return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.36},{c:near,par:0.66}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(61);rr(0,0,128,35,'#5a5248');for(let y=3;y<35;y+=6)for(let x=((y/6|0)%2)*5;x<128;x+=10){rr(x,y,9,5,R()<0.5?'#6a6258':'#5e564c');rr(x,y,9,1,'#7a7268');}rr(0,0,128,3,'#c8b890');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,7,'#7a5a3a');rr(0,0,32,1,'#a07a4a');for(let x=0;x<32;x+=8)rr(x,1,1,6,'#4a3420');rr(0,6,32,1,'#3a2a18');return c;}});
+const TH_FOREST=addRegionTheme({name:'회색 숲',sky:['#2a3036','#7a847c'],moon:'#d8e0d8',far:'#4a544e',near:'#1a1e1a',ground:'#3a2e22',top:'#4a6a42',pcol:'#b8d0b0'},
+ {build(){const R=mulberry(1707),sky=bgCanvas();useG(sky);bands(['#2a3036','#3e484c','#5a6462','#7a847c'],BGH);
+  for(let y=120;y<200;y+=2)if(y%6<2)for(let x=(y*5)%7;x<BGW;x+=3)rr(x,y,2,1,'#8a948c');
+  const far=bgCanvas();useG(far);for(let i=0;i<34;i++){const x=i*15+R()*8,h=40+R()*30;wrapX(x-15,30,o=>pine(o+15,205,h,'#4a544e'));}rr(0,205,BGW,65,'#3a443e');
+  const mid=bgCanvas();useG(mid);for(let i=0;i<18;i++){const x=i*28+R()*10,h=70+R()*40;wrapX(x-22,44,o=>pine(o+22,228,h,'#2e3832'));}rr(0,226,BGW,44,'#26302a');
+  for(let y=150;y<230;y+=3)if(R()<0.5)rr(R()*BGW,y,40+R()*60,1,'#6a746c');
+  const near=bgCanvas();useG(near);for(let i=0;i<5;i++){const x=i*100+R()*40,tw=14+((i*7)%8);wrapX(x,30,o=>{rr(o,0,tw,235,'#1a1e1a');rr(o+3,0,2,235,'#2a302a');});}
+  for(let i=0;i<30;i++){const x=R()*BGW;wrapX(x,14,o=>{rpoly([[o,235],[o+4,222],[o+7,235]],'#2a4a2a');rpoly([[o+5,235],[o+10,224],[o+13,235]],'#1e3a1e');});}
+  return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.35},{c:near,par:0.68}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(71);rr(0,0,128,35,'#3a2e22');for(let i=0;i<60;i++)rr(R()*128,4+R()*31,2,1,R()<0.5?'#2e241a':'#4a3a2a');for(let x=0;x<128;x++){const h=1+Math.floor(R()*4);rr(x,4-h,1,h,R()<0.5?'#3a5a3a':'#4a6a42');}return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,7,'#5a4228');rr(0,0,32,1,'#7a5a38');rr(0,3,32,1,'#4a3420');rr(0,6,32,1,'#2a1e10');return c;}});
+const TH_JUNGLE=addRegionTheme({name:'세계수 대밀림',sky:['#081a10','#1e5a30'],moon:'#ffe07a',far:'#2a1e12',near:'#0e3a18',ground:'#2a1e12',top:'#5ab060',pcol:'#7dff8a'},
+ {build(){const R=mulberry(1808),sky=bgCanvas();useG(sky);bands(['#081a10','#0e2a18','#164024','#1e5a30'],BGH);
+  for(let i=0;i<6;i++){const x=40+i*80+R()*20;for(let y=0;y<200;y++)if((x+y)%3===0)rr(x+y*0.3,y,8,1,'rgba(200,255,180,0.08)');}
+  const far=bgCanvas();useG(far);for(let i=0;i<8;i++)canopy(R()*BGW,20+R()*40,18+R()*10,['#0a2a14','#164a24','#2a7a3a','#5ab878'],R);
+  wrapX(200,80,o=>{rr(o+20,40,40,195,'#2a1e12');rr(o+20,40,6,195,'#3a2a18');for(let k=0;k<4;k++)rline(o+40,70+k*30,o+40+(k%2?60:-60),40+k*30,5,'#2a1e12');canopy(o+40,40,40,['#0e3a1a','#1e6a2e','#3a9a4a','#7dff8a'],R);});
+  const mid=bgCanvas();useG(mid);for(let i=0;i<12;i++){const x=R()*BGW,L=40+R()*80;wrapX(x,4,o=>{for(let y=0;y<L;y++)rr(o+Math.sin(y*0.15)*2,y,1,1,y%7?'#2a6a2a':'#5ab060');rr(o-1,L,3,3,'#ff9ccf');});}
+  for(let i=0;i<10;i++){const x=i*50+R()*20;wrapX(x,40,o=>{for(let k=0;k<5;k++)rpoly([[o+20,230],[o+k*8,205+k*2],[o+k*8+6,206+k*2]],k%2?'#1e5a2a':'#2a7a3a');});}
+  const near=bgCanvas();useG(near);for(let i=0;i<7;i++){const x=i*70+R()*30;wrapX(x,40,o=>{rpoly([[o,235],[o+10,200],[o+26,190],[o+18,210],[o+36,235]],'#0e3a18');rline(o+6,232,o+24,194,1,'#2a6a2a');});}
+  for(let i=0;i<14;i++){const x=R()*BGW,y=200+R()*30;rcirc(x,y,2,'#ffe07a');rr(x,y,1,1,'#ffffff');}
+  return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.36},{c:near,par:0.66}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(81);rr(0,0,128,35,'#2a1e12');for(let i=0;i<8;i++){let x=R()*128,y=6;for(let k=0;k<20;k++){x+=R()*3-1;y+=1.4;rr(x,y,2,1,'#4a3220');}}
+  for(let x=0;x<128;x++)rr(x,0,1,2+Math.floor(R()*3),R()<0.5?'#2e7a3a':'#3a9a4a');for(let i=0;i<6;i++)rr(R()*128,R()*3,2,2,'#ffe07a');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,1,32,6,'#4a3220');rr(0,1,32,1,'#6a4a2a');for(let x=2;x<32;x+=6){rr(x,0,4,2,'#3a9a4a');}rr(0,6,32,1,'#2a1a10');return c;}});
+const TH_LAKE=addRegionTheme({name:'거울 대호수',sky:['#14183a','#c88aa0'],moon:'#e8f0ff',far:'#1a1a34',near:'#1a2a1a',ground:'#4a5462',top:'#8ab0d0',pcol:'#9fe0ff'},
+ {moon:[120,50,'#e8f0ff'],build(){const R=mulberry(1909),sky=bgCanvas();useG(sky);const st=['#14183a','#2a2e5a','#5a4a7a','#c88aa0'];bands(st,170);
+  for(let i=0;i<80;i++)rr(R()*BGW,R()*120,1,1,R()<0.3?'#ffffff':'#8a8ac0');ditherCirc(120,50,22,'#4a4a7a');rcirc(120,50,15,'#e8f0ff');rcirc(124,47,12,'#f8fbff');
+  for(let y=170;y<BGH;y++){rr(0,y,BGW,1,mixHex(st[3],st[0],Math.min(1,(y-170)/90)));if(y%3===0)for(let x=(y*11)%23;x<BGW;x+=29)rr(x,y,10,1,'#e0c0d8');}
+  for(let y=174;y<220;y+=3)rr(116+((y*7)%5)-2,y,Math.max(2,10-((y-174)>>3)),1,'#c8d0f0');
+  const far=bgCanvas();useG(far);ridge(168,20,2,5,0.7,'#2a2a4a','#4a4a7a',172);
+  const mid=bgCanvas();useG(mid);for(const[x,h]of[[80,60],[110,40],[300,70],[340,50]])wrapX(x,16,o=>{rr(o,235-h,12,h,'#4a4a62');rr(o,235-h,2,h,'#6a6a88');rr(o-3,235-h-4,18,4,'#5a5a76');});
+  const near=bgCanvas();useG(near);for(let i=0;i<40;i++){const x=R()*BGW,h=20+R()*30;wrapX(x,4,o=>{rr(o,235-h,1,h,'#1a2a1a');rr(o-1,235-h,3,5,'#3a2a1a');});}
+  return{sky,layers:[{c:far,par:0.1},{c:mid,par:0.34},{c:near,par:0.66}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(91);rr(0,0,128,35,'#3a4250');for(let i=0;i<40;i++)rr(R()*128,3+R()*30,3+R()*5,2,R()<0.5?'#4a5462':'#2e3440');rr(0,0,128,2,'#8ab0d0');for(let x=0;x<128;x+=9)rr(x,2,4,1,'#cfe8ff');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,5,'#6a5a48');rr(0,0,32,1,'#8a7a62');for(let x=0;x<32;x+=8)rr(x,0,1,5,'#3a3024');rr(3,5,2,2,'#3a3024');rr(27,5,2,2,'#3a3024');return c;}});
+const TH_CAVE=addRegionTheme({name:'울음 동굴',sky:['#05050a','#141428'],moon:'#8ab0ff',far:'#14141f',near:'#08080e',ground:'#22222e',top:'#8ab0ff',pcol:'#a0b8ff'},
+ {build(){const R=mulberry(2010),sky=bgCanvas();useG(sky);bands(['#05050a','#0a0a16','#10101f','#141428'],BGH);for(let i=0;i<20;i++)rcirc(R()*BGW,60+R()*140,8+R()*14,'#0c0c18');
+  const far=bgCanvas();useG(far);for(let i=0;i<24;i++){const x=i*20+R()*10,h=20+R()*50;wrapX(x,14,o=>rpoly([[o,0],[o+12,0],[o+6,h]],'#14141f'));}
+  for(let i=0;i<12;i++){const x=R()*BGW,h=20+R()*40;wrapX(x,16,o=>rpoly([[o,235],[o+8,235-h],[o+16,235]],'#16162a'));}
+  const mid=bgCanvas();useG(mid);for(let i=0;i<8;i++){const x=i*60+R()*30,y=180+R()*30,cols=i%2?['#3a5aff','#8ab0ff']:['#8a3aff','#d0a0ff'];
+   wrapX(x,30,o=>{for(let k=0;k<4;k++){const h=12+k*6+(k===2?8:0),cx=o+6+k*5;rpoly([[cx-3,y+20],[cx,y+20-h],[cx+3,y+20]],cols[0]);rr(cx,y+20-h+3,1,h-6,cols[1]);}});}
+  rr(0,226,BGW,9,'#0a1a2a');for(let x=0;x<BGW;x+=6)rr(x,227,3,1,'#2a4a6a');
+  const near=bgCanvas();useG(near);for(let i=0;i<6;i++){const x=i*85+R()*30,h=50+R()*60;wrapX(x,30,o=>{rpoly([[o,0],[o+28,0],[o+14,h]],'#08080e');rr(o+12,0,2,h-6,'#1e1e30');});}
+  return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.36},{c:near,par:0.7}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(101);rr(0,0,128,35,'#22222e');for(let i=0;i<50;i++)rr(R()*128,R()*35,2+R()*3,1,R()<0.5?'#1a1a24':'#2e2e3c');for(let i=0;i<10;i++)rr(R()*128,4+R()*28,1,2,R()<0.5?'#8ab0ff':'#d0a0ff');rr(0,0,128,2,'#3a3a50');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,7,'#3a3a4a');rr(0,0,32,1,'#5a5a70');rr(12,2,3,3,'#8ab0ff');rr(0,6,32,1,'#16161e');return c;}});
+const _v17env=updateEnv;updateEnv=function(){const th=run?run.theme:0;if(th<TH_PORT){_v17env();return;}const cx=G.camX;
+ if(th===TH_PORT&&G.t%6===0)env.push({k:'ash',x:cx-20,y:rand(40,FLOOR-20),vx:rand(1.2,2.4),vy:rand(-0.2,0.2),life:520,col:pick(['#e8f0f8','#c8d8e8'])});
+ if(th===TH_FOREST&&G.t%8===0)env.push({k:'petal',x:cx+rand(0,W+100),y:-8,vx:rand(-1,0.2),vy:rand(0.6,1.2),rot:rand(0,6),vr:rand(-0.12,0.12),life:520,col:pick(['#8a6a3a','#6a7a3a','#a08040'])});
+ if(th===TH_JUNGLE&&G.t%3===0)env.push({k:'dust',x:cx+rand(0,W),y:FLOOR+rand(-6,6),vx:rand(-0.2,0.2),vy:-rand(0.3,0.9),life:randi(160,260),col:pick(['#b8ffb0','#ffe07a','#7dff8a']),sz:pick([2,2,3])});
+ if(th===TH_LAKE&&G.t%6===0)env.push({k:'dust',x:cx+rand(0,W),y:rand(FLOOR-220,FLOOR-20),vx:rand(-0.3,0.3),vy:rand(-0.3,0.3),life:randi(200,320),col:pick(['#e8ff80','#b0ffa0']),sz:2});
+ if(th===TH_CAVE){if(G.t%12===0)env.push({k:'rain',x:cx+rand(0,W),y:rand(-10,40),vx:0,vy:rand(6,9),life:90});if(G.t%5===0)env.push({k:'dust',x:cx+rand(0,W),y:rand(FLOOR-200,FLOOR),vx:rand(-0.1,0.1),vy:-rand(0.1,0.3),life:200,col:pick(['#8ab0ff','#d0a0ff']),sz:2});}
+ for(const p of env){p.x+=p.vx;p.y+=p.vy;p.life--;if(p.rot!==undefined){p.rot+=p.vr;if(p.y>FLOOR+6)p.life=0;}if(p.k==='rain'&&p.y>FLOOR)p.life=0;}
+ env=env.filter(p=>p.life>0);if(env.length>500)env.splice(0,env.length-500);};
+
+/* ── ⑨ 5단계 뒷부분 · 지역 탐험 ── */
+/* ---- 지역 보스 10: 1부 1,500~4,500 · 2부 6,000~9,500 (모두 아르디스 10,000 미만) ---- */
+PAL.treant={id:'treant',c:'#3a5a2a',h:'#4a3a22',s:'#4a3a22',l:'#3a2a18',f:'#2a1a10',d:'#2a3a1a',b:'#7dff8a',e:'#7dff8a'};
+PAL.siren={id:'siren',h:'#0e4a5a',c:'#0e3a4a',d:'#082a34',b:'#5ae0ff',l:'#0e3a4a',f:'#06202a',s:'#cfe8ff'};
+PAL.troll={id:'troll',n:'#d8d0c0',h:'#5a6a7a',e:'#7fe0ff',r:'#d8d0c0',c:'#4a5868',d:'#2a3440',b:'#7fe0ff',l:'#4a5868',f:'#1a2028',s:'#5a6a7a'};
+const DUMMY_RIG={head:'novice',body:'garb',w:'club',sw:6,ww:5};
+function rbB(name,title,hp,atk,lv,o){return Object.assign({name,title,hp,atk,lv,spd:1.5,w:38,h:76,gold:[Math.round(hp/25),Math.round(hp/18)],xp:Math.round(hp/10),def:lv>=14?0.12:0.05,lootIdx:lv>=14?3:1},o);}
+const RB=[
+ [rbB('해적 두목 바르톨로','하스벨 외곽의 무법자',1500,12,3,{w:40,palette:PAL.axe,patterns:['combo','dash','mortar','slam'],blade:{col:'#9aa0a8'},desc:'혈천교의 돈을 받고 항구 창고를 점거한 해적 두목. 화약통을 던진다.'}),
+  {head:'novice',body:'garb',w:'axe',s:1.45,sw:10,ww:8,skirt:3,flare:1,lw:3.4,armw:2.6,tails:'band'},{combo:'도끼 난도',dash:'갑판 돌진',mortar:'화약통 투척',slam:'닻 내려찍기',nova:'해적의 분노'}],
+ [rbB('산적왕 그레이몬','회색 숲의 통행세',2000,13,5,{w:34,h:74,spd:1.9,palette:PAL.band,patterns:['combo','dash','summon','teleport'],summon:'bandit',blade:{col:'#e0e0e8'},desc:'안개 속에서 숲길을 장악한 산적왕. 부하를 불러 포위한다.'}),
+  {head:'hood',body:'garb',w:'dagger',dual:true,s:1.45,sw:7,ww:6,skirt:3,flare:1,tails:'scarf'},{combo:'쌍칼 난무',dash:'숲길 습격',summon:'산적 호출',teleport:'안개 걸음',nova:'산적왕의 포효'}],
+ [rbB('혈천교 수확자 모르간','곁가지를 노리는 자',3000,14,7,{palette:PAL.hex,patterns:['volley','summon','pillars','teleport'],summon:'cultist',blade:{col:'#ff4060',glow:'#ff4060'},desc:'세계수 곁가지의 힘을 피로 수확하려는 혈천교 간부.'}),
+  {head:'hoodG',body:'mrobe',w:'staff',s:1.5,sw:7,ww:7,skirt:12,flare:4,cape:'#2a0408',capeHi:'#ff4060',glow:'#ff4060'},{volley:'혈부 난사',summon:'교도 소환',pillars:'피의 수확',teleport:'혈영보',nova:'수확제'}],
+ [rbB('수적왕 하르콘','호수 신전의 주인',3800,15,9,{palette:PAL.merc,patterns:['combo','dash','laser','mortar'],blade:{col:'#c8ccd8'},desc:'호수 위 옛 신전을 근거지로 삼은 수적의 왕. 긴 창으로 물살을 꿰뚫는다.'}),
+  {head:'helmR',body:'garb',w:'spear',s:1.5,sw:8,ww:6,skirt:4,flare:1},{combo:'창술 연격',dash:'수면 돌격',laser:'물살 찌르기',mortar:'작살 투척',nova:'수적왕의 분노'}],
+ [rbB('낭인 대장 무명','수정 광맥의 파수꾼',4500,16,10,{w:34,palette:PAL.ronin,patterns:['dash','teleport','combo','laser'],blade:{col:'#fff2b0',glow:'#fff2b0'},desc:'동방에서 건너온 낭인들의 대장. 이름을 버리고 발도 하나만 남겼다.'}),
+  {head:'gat',body:'robe',w:'katana',s:1.5,sw:7,ww:6,skirt:8,flare:2,tails:'ribbon'},{dash:'섬(閃)',teleport:'그림자 걸음',combo:'낭인 연참',laser:'발도 일섬',nova:'무명검'}],
+ [rbB('썩은 물의 군주','범람한 마기',6000,18,14,{w:90,h:70,spd:1.3,palette:PAL.bone,custom:'slime',patterns:['slam','summon','rain','slam','dash'],summon:'slime',blade:{col:'#7dff8a'},desc:'마기에 물든 바닷물이 뭉친 거대한 점액. 작은 점액을 낳는다.'}),
+  DUMMY_RIG,{slam:'범람',summon:'분열',rain:'썩은 비',dash:'밀물',nova:'대해일'}],
+ [rbB('광랑왕 펜릴','안개 속의 울음',7000,19,16,{w:90,h:50,spd:2.2,palette:PAL.imp,custom:'hound',patterns:['dash','combo','slam','summon','dash'],summon:'hound',blade:{col:'#ff5a1a'},desc:'지옥견 무리를 이끄는 거대한 늑대. 돌진과 도약으로 몰아친다.'}),
+  DUMMY_RIG,{dash:'질주',combo:'물어뜯기',slam:'도약 덮치기',summon:'무리 호출',nova:'광랑의 울음'}],
+ [rbB('타락한 가시목','마기에 먹힌 숲의 정령',8000,20,18,{w:60,h:100,spd:1.0,palette:PAL.treant,patterns:['slam','pillars','rain','summon','homing'],summon:'imp',blade:{col:'#7dff8a',glow:'#7dff8a'},desc:'곁가지를 지키던 숲의 정령이 마기에 먹혔다. 땅에서 가시를 솟구친다.'}),
+  {head:'golemH',body:'brute',w:'club',s:1.9,sw:12,ww:9,skirt:3,flare:1,lw:4.2,armw:3.6,glow:'#7dff8a'},{slam:'뿌리 찍기',pillars:'가시 숲',rain:'독 씨앗',summon:'소악마 유혹',homing:'포자탄',nova:'가시 개화'}],
+ [rbB('호수의 마녀 세이렌','물밑의 노래',9000,21,20,{w:40,h:90,spd:1.6,palette:PAL.siren,patterns:['volley','laser','homing','teleport','summon'],summon:'wraith',blade:{col:'#5ae0ff',glow:'#5ae0ff'},desc:'호수 밑바닥의 원혼들을 노래로 불러 올리는 마녀.'}),
+  {head:'hoodG',body:'mrobe',w:'staff',s:1.7,sw:8,ww:7,skirt:13,flare:5,float:true,cape:'#0e3a4a',capeHi:'#5ae0ff',tatter:true,glow:'#5ae0ff'},{volley:'물방울 탄막',laser:'수류 광선',homing:'원혼의 노래',teleport:'물거품 순보',summon:'원혼 호출',nova:'대조류'}],
+ [rbB('울음의 거인','심연과 맞닿은 동굴의 주인',9500,22,22,{w:64,h:104,spd:1.1,palette:PAL.troll,patterns:['slam','combo','rain','dash','mortar'],blade:{col:'#7fe0ff'},desc:'수정을 먹고 자란 동굴의 거인. 울음소리에 천장이 무너진다.'}),
+  {head:'oni',body:'brute',w:'club',s:1.9,sw:12,ww:9,skirt:4,flare:2,lw:4.4,armw:3.8},{slam:'수정 내려찍기',combo:'거인의 주먹',rain:'천장 붕괴',dash:'몸통 박치기',mortar:'수정 투척',nova:'울음'}]];
+const RBI=RB.map(([B,rig,pn],i)=>{B.label=`탐험 · ${i<5?'1부':'2부'} 지역 보스`;return pushBoss(B,rig,pn);});
+function drawHoundBig(e,tint,tA){const C=RIGC[64];RG=C.a.getContext('2d');RG.clearRect(0,0,64,64);const cx=32,by=60,body='#2a1414',lp=e.st==='slam'||e.st==='dash';
+ rpoly([[cx-14,by-14],[cx+8,by-16],[cx+12,by-10],[cx-14,by-8]],body);rr(cx-14,by-15,22,2,'#4a2020');
+ for(const[lx,ph]of[[-12,0],[-7,3],[4,1.5],[9,4.5]]){const s=lp?2:Math.sin(e.anim*0.3+ph)*3;rline(cx+lx,by-9,cx+lx+s,by,2,'#1a0c0c');}
+ rpoly([[cx+8,by-18],[cx+17,by-16],[cx+20,by-12],[cx+12,by-10]],body);rr(cx+10,by-21,2,4,body);rr(cx+14,by-17,2,1,'#ff3020');rr(cx+17,by-12,3,1,'#f0e8d8');
+ for(let i=0;i<4;i++)rr(cx-15-i*2,by-15-i+Math.sin(e.anim*0.3+i),2,2,i%2?'#ff5a1a':'#2a1414');
+ const o=rigCompose(C,64,tint,tA);rigBlit({c:o,ox:32,oy:60,size:64,sc:2.6},cxOf(e),e.y+e.h,e.face||1);}
+const _v17de=drawEnemy;drawEnemy=function(e){const cu=e.boss&&e.B&&e.B.custom;if(!cu||e.hide){_v17de(e);return;}
+ const tele=e.tele&&(G.t>>2)%2===0,tint=e.flash>0?'#ffffff':tele?'#ff3030':null,tA=e.flash>0?0.85:0.4;
+ if(cu==='slime')drawSlimeArt(e,tint,tA);else drawHoundBig(e,tint,tA);
+ bossDecor2(e,{eyes:[],head:[0,0],ox:0,oy:0,sc:1},cxOf(e),e.y);
+ if(e.stun>0)for(let i=0;i<3;i++){const a=G.t*0.15+i*2.1;txt('★',cxOf(e)+Math.cos(a)*20,e.y-20+Math.sin(a)*4,'#ffe07a',12,'center');}};
+
+/* ---- 지역 데이터 ---- */
+const MATS={herb:{n:'해풍 약초',ic:'🌿'},wood:{n:'회색 고목',ic:'🪵'},leaf:{n:'세계수 잎',ic:'🍃'},pearl:{n:'호수 진주',ic:'🫧'},crystal:{n:'울음 수정',ic:'💎'}};
+const REG_FLOORS=2;
+const REGIONS=[
+ {id:'port',n:'하스벨 항구 외곽',ic:'⚓',th:TH_PORT,mat:'herb',mx:40,my:104,lv:[3,14],sc:[0.75,1.2],reward:[250,800],boss:[RBI[0],RBI[5]],
+  desc:['동방 상선이 드나드는 항구. 혈천교에 붙은 해적과 왈패가 외곽 창고를 점거했다.','마기에 물든 바닷물이 범람해 점액과 소악마가 들끓는다.'],pool:[['thug','bandit','xbow','axe','cultist'],['slime','imp','bat','hound','skeleton']]},
+ {id:'forest',n:'회색 숲',ic:'🌲',th:TH_FOREST,mat:'wood',mx:78,my:64,lv:[5,16],sc:[0.85,1.3],reward:[350,1000],boss:[RBI[1],RBI[6]],
+  desc:['안개 낀 침엽수림. 산적왕의 무리가 숲길을 장악하고 통행세를 걷는다.','안개 속에서 지옥견이 울부짖고, 원혼이 나무 사이를 떠돈다.'],pool:[['bandit','xbow','spear','monk','berserk'],['hound','wraith','bat','skeleton','archer']]},
+ {id:'jungle',n:'세계수 대밀림',ic:'🌳',th:TH_JUNGLE,mat:'leaf',mx:140,my:108,lv:[7,18],sc:[0.95,1.45],reward:[450,1200],boss:[RBI[2],RBI[7]],
+  desc:['세계수 곁가지가 뻗은 거대한 밀림. 혈천교가 곁가지의 힘을 수확하려 숨어들었다.','곁가지가 마기를 막는 최전선. 마기에 먹힌 가시목과 소악마가 곁가지를 노린다.'],pool:[['cultist','hexer','viper','berserk','blood'],['imp','golemite','caster','hound','slime']]},
+ {id:'lake',n:'거울 대호수',ic:'🌊',th:TH_LAKE,mat:'pearl',mx:130,my:58,lv:[9,20],sc:[1.05,1.6],reward:[550,1400],boss:[RBI[3],RBI[8]],
+  desc:['하늘이 비치는 고요한 호수. 수적들이 호수 위 옛 신전을 근거지로 삼았다.','호수 밑바닥의 원혼이 깨어나 세이렌의 노래를 따라 떠오른다.'],pool:[['spear','shield','xbow','ronin','viper'],['wraith','caster','archer','fallen','imp']]},
+ {id:'cave',n:'울음 동굴',ic:'🕳️',th:TH_CAVE,mat:'crystal',mx:150,my:26,lv:[10,22],sc:[1.1,1.75],reward:[650,1600],boss:[RBI[4],RBI[9]],
+  desc:['바람이 울음소리를 내는 산맥의 동굴. 동방 낭인들이 수정 광맥을 지키고 있다.','심연과 맞닿은 동굴 깊은 곳. 마왕군 흑기사와 거인이 수정을 먹고 자란다.'],pool:[['ronin','gwigeom','shield','axe','hexer'],['golemite','oni','deathknight','bat','royalguard']]}];
+function ensureV17(){if(!save.mats||typeof save.mats!=='object')save.mats={};if(!save.regions||typeof save.regions!=='object')save.regions={};}
+function regState(id){ensureV17();return save.regions[id]||(save.regions[id]={clear:[0,0],hid:0});}
+function addMat(k,n){ensureV17();save.mats[k]=(save.mats[k]||0)+n;if(P)addFx({kind:'text',x:cxOf(P),y:P.y-40,txt:`${MATS[k].ic} ${MATS[k].n} +${n}`,col:'#b8ffb0',life:50});}
+const matLine=()=>Object.keys(MATS).map(k=>`${MATS[k].ic}${(save.mats&&save.mats[k])||0}`).join(' ');
+
+/* ---- 탐험 진행: 층 · 출몰 · 보스 · 출구 ---- */
+function startRegion(i){ensureV17();G.v17reg=i;G.v17last=i;startRun('region',{theme:REGIONS[i].th});}
+const _v17nf=newFloor;newFloor=function(){const isR=run&&run.mode==='region';
+ if(isR){if(run.region==null)run.region=G.v17reg||0;const Rg=REGIONS[run.region];run.theme=Rg.th;POOLS[Rg.th]=Rg.pool[isDemon()?1:0];
+  run.lbl=()=>`${Rg.ic} ${Rg.n} ${run.floor}/${REG_FLOORS}구역 · ${ROOM_NAME[run.rooms[run.cur].type]||''}${isDemon()?' · 마기 오염':''}`;}
+ _v17nf();if(isR){const Rg=REGIONS[run.region];run.scale=Rg.sc[isDemon()?1:0]*(1+(run.floor-1)*0.12);}};
+const _v17ar=addRuin;addRuin=function(rooms){if(run&&run.mode==='region'){const c=rooms.filter(r=>r.type==='combat'&&r.dist>=2);if(c.length&&Math.random()<0.45)pick(c).type='ruin';return;}_v17ar(rooms);};
+const _v17pp=populate;populate=function(r){if(run&&run.mode==='region'){const Rg=REGIONS[run.region],act=isDemon()?1:0;POOLS[run.theme]=Rg.pool[act];
+  if(r.type==='boss'){if(run.floor>=REG_FLOORS)spawnBoss(Rg.boss[act]);else{for(let i=0;i<3;i++)spawnEnemy(pick(Rg.pool[act]),spawnX(220),{elite:i<2});addFx({kind:'banner',txt:'⚔ 구역 우두머리 — 정예 무리를 쓰러뜨려라',col:'#ffb0a0',life:90});}return;}}
+ _v17pp(r);};
+function regionClear(){const Rg=REGIONS[run.region],st=regState(Rg.id),act=isDemon()?1:0,first=!st.clear[act];st.clear[act]=(st.clear[act]||0)+1;
+ const n=randi(3,5)+(act?2:0);addMat(Rg.mat,n);let msg=`${Rg.ic} ${Rg.n} 탐험 완료! ${MATS[Rg.mat].ic} ${MATS[Rg.mat].n} +${n}`;
+ if(first){const g=Rg.reward[act],s=act?8:4;save.gold+=g;save.soul=(save.soul||0)+s;msg+=` · 첫 탐험 보상 ${g}G · 🔮${s}`;}
+ writeSave(true);showResult(true,msg);}
+const _v17obd=onBossDefeated;onBossDefeated=function(){if(!run||run.mode!=='region'){_v17obd();return;}writeSave(true);
+ if(run.floor<REG_FLOORS)G.after={t:80,fn:()=>{addExitDoor('더 깊은 곳으로');openReward('elite');toast(`🚪 다음 구역으로 가는 길이 열렸습니다 — 문 앞에서 ${keyName(bind('up'))}`);}};
+ else G.after={t:110,fn:regionClear};};
+const _v17ex=onExitDoor;onExitDoor=function(){if(run&&run.mode==='region'&&run.floor<REG_FLOORS){run.floor++;P.potions=Math.min(save.potionMax,P.potions+1);newFloor();writeSave();return;}_v17ex();};
+
+/* ---- 채집 지점 · 숨은 보물 ---- */
+const _v17br=buildRoom;buildRoom=function(r){_v17br(r);if(!run||run.mode!=='region')return;const R=mulberry((r.seed^0x5f3)>>>0);r.gat=r.gat||[];
+ if(r.type==='combat'||r.type==='start'||r.type==='elite'){const n=r.type==='start'?1:1+(R()<0.4?1:0);for(let i=0;i<n;i++){const x=120+R()*(G.roomW-240);props.push({kind:'gather',x:x-16,y:FLOOR-26,w:32,h:26,used:!!r.gat[i],gi:i,room:r});}
+  if(r.type==='combat'&&R()<0.3){const pl=plats.filter(p=>p.oneway);if(pl.length){const p=pl[Math.floor(R()*pl.length)];props.push({kind:'hidden',x:p.x+p.w/2-14,y:p.y-22,w:28,h:22,used:!!r.hid,room:r});}}}};
+const _v17up=useProp;useProp=function(pr){
+ if(pr.kind==='gather'){pr.used=true;pr.room.gat[pr.gi]=1;const Rg=REGIONS[run.region];addMat(Rg.mat,randi(1,2)+(isDemon()?1:0));sfx('coin');burst(cxOf(pr),pr.y,'#b8ffb0',10,3,{up:1});writeSave(true);return;}
+ if(pr.kind==='hidden'){pr.used=true;pr.room.hid=1;const Rg=REGIONS[run.region],act=isDemon()?1:0;regState(Rg.id).hid++;const g=gainGold(randi(80,160)*(act?2:1));addMat(Rg.mat,2+act);
+  const it=genItem(pick(SLOTS)[0],Math.random()<0.25?3:Math.random()<0.6?2:1);addItem(it,true);save.soul=(save.soul||0)+1;
+  addFx({kind:'banner',txt:`💰 숨은 보물 — ${it.icon} ${it.name} · ${g}G`,col:'#ffd77a',life:110});sfx('level');burst(cxOf(pr),pr.y,'#ffd34d',20,5,{up:2});writeSave(true);return;}
+ _v17up(pr);};
+function drawGather(p){const cx=cxOf(p),by=p.y+p.h,m=run&&run.region!=null?REGIONS[run.region].mat:'herb',t=G.t;
+ if(p.used){ctx.fillStyle='rgba(80,70,60,.6)';ctx.fillRect(cx-8,by-4,16,4);return;}ctx.save();
+ if(m==='herb'){ctx.fillStyle='#3a7a3a';for(let i=-2;i<=2;i++)ctx.fillRect(cx+i*5-1,by-12+Math.abs(i)*2,3,12-Math.abs(i)*2);ctx.fillStyle='#ff9ccf';ctx.fillRect(cx-6,by-15,3,3);ctx.fillRect(cx+4,by-13,3,3);}
+ else if(m==='wood'){ctx.fillStyle='#5a4228';ctx.fillRect(cx-16,by-10,32,10);ctx.fillStyle='#8a6a40';ctx.fillRect(cx+12,by-10,4,10);ctx.fillStyle='#3a5a3a';ctx.fillRect(cx-10,by-12,6,2);}
+ else if(m==='leaf'){ctx.fillStyle='#4a3018';ctx.fillRect(cx-1,by-16,3,16);ctx.fillStyle='#3aa04a';ctx.fillRect(cx-7,by-18,6,4);ctx.fillRect(cx+2,by-14,6,4);ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(125,255,138,${0.3+0.3*Math.sin(t*0.1)})`;ctx.beginPath();ctx.arc(cx,by-12,12,0,7);ctx.fill();}
+ else if(m==='pearl'){ctx.fillStyle='#c8b8a8';ctx.beginPath();ctx.ellipse(cx,by-5,12,6,0,Math.PI,0);ctx.fill();ctx.fillStyle='#f8f0ff';ctx.beginPath();ctx.arc(cx,by-6,3,0,7);ctx.fill();}
+ else{ctx.fillStyle='#5a7aff';for(let k=0;k<3;k++){ctx.beginPath();ctx.moveTo(cx-8+k*7,by);ctx.lineTo(cx-5+k*7,by-12-k*3);ctx.lineTo(cx-2+k*7,by);ctx.fill();}ctx.fillStyle='#dfe8ff';ctx.fillRect(cx-1,by-12,1,8);}
+ ctx.restore();if(Math.sin(t*0.15+p.x)>0.85)parts.push({x:cx+rand(-10,10),y:by-rand(4,16),vx:0,vy:-0.4,life:16,max:16,col:'#ffffff',sz:2,g:0,add:true});
+ if(ov(P,p))hint(cx,p.y-10,`[${keyName(bind('up'))}] 채집`);}
+function drawHidden(p){if(p.used)return;const cx=cxOf(p),d=Math.abs(cxOf(P)-cx)+Math.abs(cyOf(P)-cyOf(p));
+ if(d>170){if(G.t%14===0)parts.push({x:cx+rand(-8,8),y:p.y+rand(0,p.h),vx:0,vy:-0.3,life:20,max:20,col:'#ffd77a',sz:2,g:0,add:true});return;}
+ ctx.save();ctx.globalAlpha=Math.min(1,(170-d)/80);ctx.fillStyle='#5a3a1e';ctx.fillRect(p.x,p.y+8,p.w,p.h-8);ctx.fillStyle='#d6a93a';ctx.fillRect(p.x,p.y+13,p.w,3);ctx.fillRect(cx-3,p.y+10,6,8);ctx.fillStyle='#7a4a24';ctx.fillRect(p.x,p.y,p.w,10);ctx.restore();
+ if(ov(P,p))hint(cx,p.y-10,`[${keyName(bind('up'))}] 숨은 보물`);}
+const _v17dp=drawProps;drawProps=function(){const all=props;props=all.filter(p=>p.kind!=='gather'&&p.kind!=='hidden');try{_v17dp();}finally{props=all;}
+ for(const p of all){if(p.kind==='gather')drawGather(p);else if(p.kind==='hidden')drawHidden(p);}};
+
+/* ---- 🗺️ 월드맵 ---- */
+function paintWorld(dm){const c=mkC(240,135);RG=c.getContext('2d');const R=mulberry(4242);
+ rr(0,0,240,135,'#1e4a7a');for(let y=0;y<135;y+=4)for(let x=(y*7)%13;x<240;x+=15)rr(x,y,4,1,'#2e5a8a');
+ const land=[[46,0],[240,0],[240,135],[96,135],[78,124],[60,126],[30,116],[22,96],[30,74],[24,50],[34,24]];
+ rpoly(land.map(([x,y])=>[x-3,y+2]),'#d8c890');rpoly(land,'#5a8a4a');for(let i=0;i<260;i++)rr(60+R()*180,R()*135,2,1,R()<0.5?'#4a7a3a':'#6a9a5a');
+ for(let i=0;i<12;i++){const x=160+i*7+R()*4,h=16+R()*14;rpoly([[x-10,42],[x,42-h],[x+10,42]],i%2?'#7a7a8a':'#6a6a7a');rpoly([[x-3,47-h],[x,42-h],[x+3,47-h]],'#f0f0f8');}
+ rcirc(150,30,5,'#1a1a24');rr(145,30,10,5,'#1a1a24');
+ for(let i=0;i<40;i++)rcirc(62+R()*34,52+R()*26,2+R()*2,pick(['#3a4a3e','#4a5a4c','#2e3a32']));
+ for(let i=0;i<46;i++)rcirc(118+R()*80,94+R()*40,3+R()*3,pick(['#1e6a2a','#2e8a3a','#3aa04a']));
+ rr(138,92,5,18,'#5a3a1a');rcirc(140,88,12,'#3aa04a');rcirc(137,85,6,'#5ac060');rr(140,84,2,2,'#ffe07a');
+ rpoly(Array.from({length:24},(_,i)=>[130+Math.cos(i/24*6.283)*20,58+Math.sin(i/24*6.283)*11]),'#3a7ab0');rr(118,56,14,1,'#8ac0e8');rr(126,61,10,1,'#8ac0e8');
+ for(const[x,y]of[[34,100],[40,98],[46,102],[38,106],[44,108]]){rr(x,y,5,4,'#d8c8b0');rr(x,y-2,5,2,'#a83a2a');}rr(26,110,12,2,'#6a4a2a');rpoly([[16,112],[26,112],[24,115],[18,115]],'#3a2a1a');rr(21,106,1,6,'#2a1a10');
+ rr(57,32,2,8,'#c02030');rr(63,32,2,8,'#c02030');rr(55,31,12,2,'#c02030');
+ const road=(a,b)=>{const n=Math.hypot(b[0]-a[0],b[1]-a[1])/3;for(let i=0;i<n;i++)rr(a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n,1,1,'#e8d8a0');};
+ const S=[60,36],Pt=[40,104],F=[78,64],L=[130,58],J=[140,108],Cv=[150,26];road(S,Pt);road(S,F);road(F,Pt);road(F,L);road(L,Cv);road(L,J);
+ if(dm){for(let y=0;y<135;y+=2)for(let x=(y%4)+40;x<240;x+=4)if(R()<0.3)rr(x,y,1,1,'#5a2a6a');rline(150,30,176,6,2,'#ff2040');rline(176,6,186,0,1,'#ff2040');
+  for(let i=0;i<14;i++)rcirc(140+R()*100,R()*135,3+R()*4,'rgba(120,40,160,0.35)');}
+ return c;}
+const WMAP={};
+function worldURL(){const d=isDemon()?1:0;if(WMAP[d])return WMAP[d];const s=paintWorld(d),c=mkC(960,540),g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(s,0,0,960,540);return WMAP[d]=c.toDataURL();}
+function showWorld(){ensureV17();G.back=showHub;const act=isDemon()?1:0,sel=G.v17sel==null?0:G.v17sel,Rg=REGIONS[sel],st=regState(Rg.id),B=BOSSES[Rg.boss[act]];
+ const nodes=REGIONS.map((r,i)=>{const done=regState(r.id).clear[act]>0;return`<button class="btn sm ${i===sel?'gold':''}" style="position:absolute;left:${r.mx*4-62}px;top:${r.my*4-18}px;width:124px;text-align:center" onclick="G.v17sel=${i};showWorld()">${r.ic} ${r.n.split(' ').pop()}${done?' ✔':''}<br><span class="sm">Lv.${r.lv[act]}</span></button>`;}).join('');
+ const en=[...new Set(Rg.pool[act])].map(k=>ENEMIES[k]?ENEMIES[k].name:k).join(', ');
+ setUI(`<div style="position:absolute;inset:0;background:url('${worldURL()}') center/cover;image-rendering:pixelated"></div>
+ <div style="position:absolute;left:14px;top:10px;right:14px;display:flex;justify-content:space-between;align-items:center"><h2 style="text-shadow:0 2px 0 #000">🗺️ 아르디아 ${act?'— 인외마경':'— 교류의 시대'}</h2>
+ <div class="row"><span style="text-shadow:0 1px 0 #000">💰 ${save.gold.toLocaleString()} · ${matLine()}</span><button class="btn" onclick="showWorkshop()">🧪 공방</button><button class="btn" onclick="startRun('expedition')">⚔️ 고전 원정</button><button class="btn" onclick="showHub()">← 거점</button></div></div>
+ <div style="position:absolute;left:${60*4-30}px;top:${36*4+14}px;color:#ffd77a;font-size:12px;text-shadow:0 1px 0 #000">⛩️ 검의 사당</div>${nodes}
+ <div class="card" style="position:absolute;right:14px;top:62px;width:280px;font-size:12px;line-height:1.55"><div class="ct">${Rg.ic} ${Rg.n}</div><div class="kv muted">권장 Lv.${Rg.lv[act]} · ${REG_FLOORS}구역</div><div class="kv">${Rg.desc[act]}</div>
+ <div class="kv muted">등장: ${en}</div><div class="kv">지역 보스: <b style="color:#ff9a9a">${B.name}</b> · HP ${Math.round(B.hp*DIFF[1].hp).toLocaleString()}</div>
+ <div class="kv">채집: ${MATS[Rg.mat].ic} ${MATS[Rg.mat].n} · 숨은 보물 ${st.hid}개 · 탐험 ${st.clear[act]}회</div>
+ <div class="kv" style="color:#ffd77a">${st.clear[act]?'반복 보상: 재료':`첫 탐험 보상: ${Rg.reward[act]}G · 🔮${act?8:4}`}</div>
+ <button class="btn gold big" style="margin-top:6px;width:100%;text-align:center" onclick="startRegion(${sel})">탐험 출발</button></div>`);}
+
+/* ---- 🧪 공방 ---- */
+const RECIPES=[
+ {n:'🧪 응급 물약 주머니',d:'물약 최대치 +1 (최대 6)',need:{herb:8},ok:()=>save.potionMax<6,fx:()=>{save.potionMax++;}},
+ {n:'🔮 검혼석 정제',d:'검혼석 +4',need:{wood:4,herb:2},fx:()=>{save.soul=(save.soul||0)+4;}},
+ {n:'💠 세계수 정수',d:'아티어 파편 +2',need:{leaf:4},fx:()=>{ensureV9();save.shards+=2;}},
+ {n:'💍 진주 장신구',d:'희귀~영웅 장신구 1개',need:{pearl:3,herb:2},fx:()=>addItem(genItem('acc',Math.random()<0.3?3:2))},
+ {n:'🪨 수정 제련',d:'적철광 +3',need:{crystal:3},fx:()=>{save.ore+=3;}},
+ {n:'🔱 아르디아의 징표',d:'아티어 징표 +1',need:{herb:3,wood:3,leaf:3,pearl:3,crystal:3},fx:()=>{ensureV9();save.marks+=1;}},
+ {n:'🎁 동료 선물 꾸러미',d:'동행 중인 동료 호감도 +20',need:{herb:2,leaf:2,pearl:1},ok:()=>!!(save.compSel&&save.comp&&save.comp[save.compSel]),fx:()=>addAff(save.compSel,20)}];
+const canCraft=r=>Object.keys(r.need).every(k=>(save.mats[k]||0)>=r.need[k])&&(!r.ok||r.ok());
+function showWorkshop(){ensureV17();G.back=showWorld;
+ const rows=RECIPES.map((r,i)=>{const can=canCraft(r);return`<div class="card" style="padding:8px"><div class="ct" style="font-size:13px">${r.n}</div><div class="kv sm">${r.d}</div><div class="kv sm muted">${Object.keys(r.need).map(k=>`${MATS[k].ic} ${MATS[k].n} ${save.mats[k]||0}/${r.need[k]}`).join(' · ')}</div><button class="btn sm ${can?'gold':''}" style="margin-top:4px" ${can?'':'disabled'} onclick="craftV17(${i})">제작</button></div>`;}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>🧪 공방 — 탐험 재료 가공</h2><div class="row"><span>${matLine()}</span><button class="btn" onclick="showWorld()">← 탐험 지도</button></div></div>
+ <div class="scroll" style="flex:1"><div class="grid3">${rows}</div></div><div class="muted sm">재료는 채집 지점 · 숨은 보물 · 지역 탐험 완료로 얻습니다. 2부(인외마경)에서는 채집량이 늘어납니다.</div></div>`);}
+function craftV17(i){const r=RECIPES[i];if(!canCraft(r))return;for(const k in r.need)save.mats[k]-=r.need[k];r.fx();sfx('level');toast(`${r.n} 제작 완료`);writeSave(true);showWorkshop();}
+
+/* ---- 연결: 거점 버튼 · 결과 · 재도전 · 버전 ---- */
+const _v17hub=showHub;showHub=function(){ensureV17();_v17hub();const b=[...document.querySelectorAll('#ui .hub-left button')].find(x=>(x.getAttribute('onclick')||'')==="startRun('expedition')");
+ if(b){b.setAttribute('onclick','showWorld()');b.textContent='🗺️ 아르디아 탐험';}};
+const _v17res=showResult;showResult=function(w,m){const rg=run&&run.mode==='region'?REGIONS[run.region]:null,fl=run?run.floor:0;_v17res(w,m);if(!rg)return;
+ const td=document.querySelectorAll('#modal table.rec td');if(td[1])td[1].textContent='🗺️ 아르디아 탐험';if(td[3])td[3].textContent=`${rg.n} ${fl}/${REG_FLOORS}구역`;};
+const _v17rr=retryRun;retryRun=function(){if(LASTRUN&&LASTRUN.m==='region'){const i=G.v17last||0;goHub();startRegion(i);return;}_v17rr();};
+const _v17ti=showTitle;showTitle=function(){_v17ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 완전판 · v17';};
+const _v17mn=showMenu;showMenu=function(){_v17mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 완전판 · v17 · 자동 저장 지원';};
+
+/* @@V10-END@@ */
 
 /* ===================== 44. 메인 루프 · 초기화 ===================== */
 let lastT=performance.now(),acc=0,slowTog=false;
