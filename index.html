@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>검성 — SWORD MASTER</title>
+<title>검성 — SWORD MASTER · 버전 11</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:#040408;overflow:hidden;color:#e8e6f0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -6002,6 +6002,838 @@ const _v17ti=showTitle;showTitle=function(){_v17ti();const v=document.querySelec
 const _v17mn=showMenu;showMenu=function(){_v17mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 완전판 · v17 · 자동 저장 지원';};
 
 /* @@V10-END@@ */
+
+/* ===================== 66~70. 버전 11 — 생성기 자동 삽입 (거너 · 무기군 · 궁수 궁극기 · 방어력 · 승급 · 마을 · 동료 · 성별 · 저장 슬롯) ===================== */
+
+/* @@V11-BEGIN@@ */
+
+/* ── ① 1단계 · 거너 · 특수탄 · 탄우무 ── */
+/* ===================== 66. 업데이트 11 · 1단계: 거너(총사) · 특수탄 · 비전 「탄우무」 · 거너 아이템 ===================== */
+/* ---- 외형 · 무기 ---- */
+PAL.gn={id:'gn',h:'#1a1418',k:'#2a2834',s:'#f0c08a',e:'#141018',c:'#4a3a2a',d:'#2a2018',b:'#d6a93a',l:'#2a2420',f:'#121010',r:'#c0202a'};
+WPN.musket={len:22,wid:2,col:'#3a3a42',edge:'#8a8a9a',guard:0,grip:6,gcol:'#6a3a1a',gold:'#d6a93a'};
+WPN.pistol={len:9,wid:2,col:'#3a3a42',edge:'#9a9aa8',guard:0,grip:3,gcol:'#5a3a1a',gold:'#d6a93a'};
+RIGDEF.gunner={head:'novice',body:'garb',w:'musket',sw:6,ww:5,skirt:6,flare:2,tails:'ribbon'};
+RIGDEF.gunner2={head:'novice',body:'garb',w:'pistol',dual:true,sw:6,ww:5,skirt:6,flare:2,tails:'ribbon'};
+HDV.gunner={m:{f:'m',hair:'gat_m',eye:'#5a3a20',tails:'ribbon'}};HDV.gunner2=HDV.gunner;
+Object.assign(SFX,{gun:['square',900,120,0.08,0.18],tick:['square',1250,1000,0.03,0.12]});
+
+/* ---- 직업 ---- */
+CLASSES.gunner={name:'거너',icon:'🔫',role:'사격형',weapon:'화승총',wname:'흑철 화승총',
+ desc:'동방에서 건너온 화약 무술. 패링 · 저스트 회피 · 풀차지로 특수탄을 모아 궁극기와 비전에 쓴다.',
+ hp:100,atk:12.5,spd:4.2,pal:PAL.gn,head:'novice',blade:{len:24,wid:2,col:'#3a3a42'},
+ skill:{name:'연환포',cd:8,desc:'유파에 따라 관통탄 · 근접 폭산 · 난사. 돌진하며 쏘면…?'},cost:0,armor:'light'};
+JOBS.push('gunner');BASE_W.gunner=6;
+WLINE.gunner=['흑철 화승총','청동 조총','뇌관 장총','흑룡 화승포','천뢰 신기총'];
+GM_DESC.gunner='특수탄: 패링 +2 · 저스트 회피 +1 · 풀차지 +1 → 궁극기(2발 이상) · 비전';
+ULT_LINES.gunner='화약은 장전됐다. 쏴라!';
+
+/* ---- 유파 ---- */
+STYLES.gunner={
+ cheolpo:{name:'철포류',icon:'🎯',col:'#fff2b0',desc:'느리고 묵직한 장총. 공격 키를 길게 눌렀다 놓으면 모든 것을 꿰뚫는 관통 저격(풀차지 시 특수탄 +1).',atkSpd:0.85,mod:{crit:0.1},
+  combo:[rh(1.5,26,'gbul'),rh(1.5,26,'gbul')],charge:{time:44,shot:'gsnipe',mul:4.5,txt:'관통 저격!',hit:rh(0,22,null,{lunge:-4})},
+  dodge:{type:'dash',spd:12,dur:10,inv:14,cd:32,back:true},parryWin:12,dblN:3,whirlN:3,
+  skillMod:{desc:'연환포가 대구경 관통탄 3발'},ult:{name:'천공일발',type:'screen',dmg:10,col:'#fff2b0',desc:'시간을 멈추고 화면 전체를 꿰뚫는 한 발'}},
+ sanpo:{name:'산탄류',icon:'💥',col:'#ff9a3c',desc:'짧은 사거리, 부채꼴 산탄. 가까이 붙을수록 강하다. 마지막 사격은 크게 밀쳐낸다.',atkSpd:0.95,mod:{hp:1.08},
+  combo:[rh(0.55,24,'gpel',{spread:5,kb:4}),rh(0.55,24,'gpel',{spread:5}),rh(0.6,30,'gpel',{spread:7,kb:8})],
+  dodge:{type:'roll',spd:8,dur:20,inv:18,cd:34},parryWin:13,dblN:3,whirlN:3,
+  skillMod:{desc:'연환포가 근접 폭산 + 반동 도약'},ult:{name:'화룡포격',type:'meteor',n:10,dmg:3,col:'#ff8a3c',desc:'하늘에서 화룡탄 10발이 쏟아진다'}},
+ twin:{name:'쌍총류',icon:'🔫',col:'#9fe8ff',desc:'두 자루 권총으로 쉴 새 없이 쏜다. 가장 빠른 손과 가장 긴 대시.',atkSpd:1.4,mod:{spd:1.05,crit:0.04},
+  combo:[rh(0.6,12,'gtwin'),rh(0.6,12,'gtwin'),rh(0.6,12,'gtwin'),rh(0.9,16,'gtwin',{spread:2})],
+  dodge:{type:'dash',spd:15,dur:10,inv:14,cd:24},parryWin:11,dblN:3,whirlN:3,
+  skillMod:{desc:'연환포가 12연사'},ult:{name:'쌍룡난무',type:'execute',n:9,dmg:2.6,col:'#9fe8ff',desc:'적들 사이를 오가며 9회 근접 사격'}}};
+Object.defineProperty(STYLES.gunner,'basic',{enumerable:false,value:{name:'기본기',icon:'🔰',col:'#cfe0f0',
+ desc:'유파를 정하기 전의 화승총 기본기. Lv15에 유파를 고르면 고유 메커니즘이 열린다.',atkSpd:0.95,mod:{},
+ combo:[rh(1,22,'gbul'),rh(1,22,'gbul'),rh(1.2,26,'gbul')],dodge:{type:'dash',spd:12,dur:10,inv:14,cd:32,back:true},parryWin:12,dblN:3,whirlN:3,
+ skillMod:{desc:'없음 (유파 선택 시 강화)'},ult:{name:'일제 사격',type:'waves',n:5,dmg:1.6,col:'#cfe0f0',desc:'관통 탄환 5연발'}}});
+Object.assign(OUGI,{'gunner.cheolpo':{n:'오의 · 일격필중',d:'관통 저격 피해 50% 증가',fx:{chargeMul:1.5}},
+ 'gunner.sanpo':{n:'오의 · 벽력',d:'마지막 산탄 피해 50% 증가',fx:{finMul:1.5}},
+ 'gunner.twin':{n:'오의 · 제비걸음',d:'대시 재사용 대기시간 40% 감소',fx:{dodgeCd:0.6}}});
+
+/* ---- 비전: 탄우무 ---- */
+HIDDEN.gunner={n:'탄우무(彈雨舞)',hint:'질주하는 도중 연환포를 당겨라. 그리고 북소리에 맞춰 방아쇠를.',
+ desc:'회피(돌진) 중 고유 스킬 사용 시 특수탄 2발을 소모해 박자 연사에 돌입. 메트로놈에 맞춰 공격 키를 누르면 연사가 이어지고, 누를 때마다 탄속·위력이 오른다. 박자를 놓치거나 엇박으로 누르면 끊긴다. 40연사 완주 시 마무리 관통탄.'};
+
+/* ---- 저장 ---- */
+function ensureGun(s){s=s||save;s.unlocked.gunner=true;if(!s.style.gunner)s.style.gunner='basic';if(!s.weapons.gunner)s.weapons.gunner={g:0,p:0,opt:null};
+ const c=s.custom;if(c){if(c.pal&&!('gunner' in c.pal))c.pal.gunner=null;if(c.skin&&!c.skin.gunner)c.skin.gunner='base';if(c.gender&&!c.gender.gunner)c.gender.gunner='m';}}
+const _g1ds=defaultSave;defaultSave=function(){const d=_g1ds();ensureGun(d);return d;};
+const _g1mg=migrateSave;migrateSave=function(raw){_g1mg(raw);ensureGun();};
+ensureGun();
+
+/* ---- 특수탄 ---- */
+const gbMax=()=>curStyle().gbMax?8:6;
+function gainGB(n,why){if(!P||save.cls!=='gunner'||G.mode==='pvp')return;const b=P.gb||0;P.gb=Math.min(gbMax(),b+n);
+ if(P.gb>b){addFx({kind:'text',x:cxOf(P)+P.face*20,y:P.y-30,txt:`◆+${P.gb-b} ${why}`,col:'#ffd34d',life:30});sfx('coin');}}
+const _g1ps=parrySuccess;parrySuccess=function(src){_g1ps(src);gainGB(2,'패링');};
+const _g1sd=startDodge;startDodge=function(S){const thr=save.cls==='gunner'&&!(P.gbCd>0)&&enemyThreat(),cd0=P.dodgeCd;_g1sd(S);
+ if(thr&&P.dodgeCd>cd0){P.gbCd=60;gainGB(1,'저스트 회피');}};
+const _g1cs=chargedSlash;chargedSlash=function(S){_g1cs(S);gainGB(1,'풀차지');};
+
+/* ---- 탄환 ---- */
+function muzzle(f,col){const x=cxOf(P)+f*26,y=cyOf(P)-2;sparks(x,y,col,4);parts.push({x,y,vx:0,vy:0,life:4,max:4,col:'#fff6c0',sz:6,g:0,add:true});P.recoil=3;}
+const _g1xp=extraProj;extraProj=function(kind,S,f,A){const pa=!!S.pierceAll;
+ switch(kind){
+  case'gbul':muzzle(f,S.col);return{kind:'orb',w:10,h:8,vx:f*18,life:48,dmg:A,col:S.col,pierce:pa,kb:2};
+  case'gpel':muzzle(f,'#ffb060');return{kind:'orb',w:8,h:8,vx:f*rand(13,16),life:15,dmg:A,col:'#ffb060',kb:4,pierce:pa};
+  case'gtwin':muzzle(f,S.col);return{kind:'orb',w:8,h:6,vx:f*20,life:40,dmg:A,col:S.col,pierce:pa,kb:1};
+  case'gsnipe':muzzle(f,'#fff2b0');P.vx-=f*2;shake(4);return{kind:'arrow',w:60,h:4,vx:f*30,life:36,dmg:A*4,pierce:true,col:'#fff2b0',kb:7};}
+ return _g1xp(kind,S,f,A);};
+
+/* ---- 고유 스킬 · 탄우무 ---- */
+const _g1us=useSkill;useSkill=function(S){
+ const dash=P&&P.dodgeT>0,cd0=P?P.skillCd:1;_g1us(S);
+ if(!P||save.cls!=='gunner'||cd0>0||!(P.skillCd>0))return;
+ if(dash&&(P.gb||0)>=2&&G.mode!=='pvp'){P.gb-=2;P.dodgeT=0;P.sk={k:'rhythm',t:0,n:0,next:26,beat:22};
+  addFx({kind:'banner',txt:'🥁 탄우무 — 북소리에 맞춰 쏴라!',col:'#ffd34d',life:70});discoverHidden('gunner');}
+ else P.sk={k:'gun',t:0};};
+function gunSkillTick(S,k){k.t++;const M=skMul(),A=P.st.atk*M,st=save.style.gunner;P.vx*=0.7;
+ if(st==='sanpo'){
+  if(k.t===5){strike(frontBox(160,110),3.2*M,{hitset:new Set(),kb:14,heavy:true,dir:P.face,col:S.col});
+   for(let i=0;i<9;i++)firePlayerProj('gpel',S,{dmg:A*0.6,vy:(i-4)*0.9});P.vx=-P.face*9;P.vy=-6;shake(9);sfx('boom');
+   addFx({kind:'ring',x:cxOf(P)+P.face*30,y:cyOf(P),r:10,max:120,col:S.col,life:16});}
+  if(k.t>=18)P.sk=null;}
+ else if(st==='twin'){if(k.t%3===1&&k.t<=36)firePlayerProj('gtwin',S,{dmg:A*0.7,vy:rand(-1.5,1.5)});if(k.t>=40)P.sk=null;}
+ else if(st==='cheolpo'){if(k.t===6||k.t===16||k.t===26)firePlayerProj('gsnipe',S,{dmg:A*2.4});if(k.t>=32)P.sk=null;}
+ else{if(k.t===4||k.t===12||k.t===20)firePlayerProj('gbul',S,{dmg:A*1.4});if(k.t>=26)P.sk=null;}}
+function rhythmEnd(S,k,full,msg){P.sk=null;P.vx=-P.face*3;
+ if(full){firePlayerProj('gsnipe',S,{dmg:P.st.atk*skMul()*6,w:90,h:10});signatureCut('#ffd34d',true);
+  addFx({kind:'banner',txt:'🥁 탄우무 — 40연사 완주!',col:'#ffd34d',life:90});gainGB(2,'완주');}
+ else{addFx({kind:'text',x:cxOf(P),y:P.y-46,txt:`${msg} — ${k.n}연사`,col:'#ff9a9a',life:50});sfx('deny');}}
+function rhythmTick(S,k){k.t++;P.vx*=0.75;const win=S.beatWide?9:6;
+ if(k.t===k.next)sfx('tick');
+ if(hit('attack')){const d=k.t-k.next;
+  if(Math.abs(d)<=win){k.n++;const perfect=Math.abs(d)<=2,spd=Math.min(36,13+k.n*1.6),A=P.st.atk*skMul();
+   firePlayerProj('gbul',S,{dmg:A*(0.8+Math.min(k.n,20)*0.07)*(perfect?1.4:1),vx:P.face*spd,w:10+Math.min(14,k.n),h:8,
+    col:perfect?'#ffffff':S.col,pierce:k.n>=10,life:Math.round(720/spd)});
+   addFx({kind:'text',x:cxOf(P),y:P.y-44,txt:`${perfect?'PERFECT':'GOOD'} ×${k.n}`,col:perfect?'#ffe07a':'#9fe8ff',life:24});
+   if(k.n%5===0)k.beat=Math.max(14,k.beat-2);k.next+=k.beat;
+   if(k.n>=40){rhythmEnd(S,k,true);return;}}
+  else if(!(k.n===0&&d<-win)){rhythmEnd(S,k,false,'엇박');return;}}
+ if(k.t>k.next+win)rhythmEnd(S,k,false,'박자를 놓쳤다');}
+const _g1usk=updateSkill;updateSkill=function(S){const k=P.sk;
+ if(k.k==='gun'){gunSkillTick(S,k);return;}if(k.k==='rhythm'){rhythmTick(S,k);return;}_g1usk(S);};
+
+/* ---- 궁극기: 특수탄 2발 필요 · 남은 탄만큼 위력 증가 ---- */
+const _g1cu=castUlt;castUlt=function(S){if(!P||save.cls!=='gunner'||G.mode==='pvp'){_g1cu(S);return;}
+ if(P.ultG>=100&&(P.gb||0)<2&&!P.ul&&!P.sk&&!G.cut){deny('특수탄 2발 필요');return;}
+ const n=P.gb||0,u0=P.ultG;_g1cu(S);
+ if(u0>=100&&P.ultG<100){P.gb=0;P.gunMul=1+Math.max(0,n-2)*0.15;P.gunArm=0;
+  if(n>2)addFx({kind:'text',x:cxOf(P),y:P.y-60,txt:`특수탄 ${n}발 장전 — 위력 +${Math.round((P.gunMul-1)*100)}%`,col:'#ffd34d',life:60});}};
+const _g1calc=calcStats;calcStats=function(){const r=_g1calc();if(P&&P.gunMul>1&&(P.ul||G.cut))r.atk*=P.gunMul;return r;};
+const _g1sig=ultSignature;ultSignature=function(S){if(save.cls!=='gunner'){_g1sig(S);return;}const col=S.ult.col;
+ addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:220,col,life:22});sparks(cxOf(P),cyOf(P),col,24);
+ for(let i=0;i<14;i++)parts.push({x:cxOf(P),y:cyOf(P),vx:rand(-4,4),vy:-rand(3,7),life:40,max:40,col:'#d6a93a',sz:3,g:0.35});};
+
+/* ---- 매 프레임 ---- */
+const _g1up=updatePlayer;updatePlayer=function(){if(P&&P.gb==null)P.gb=1;_g1up();if(!P)return;
+ if(P.recoil>0)P.recoil=Math.max(0,P.recoil-0.5);if(P.gbCd>0)P.gbCd--;
+ if(P.ul)P.gunArm=1;if(P.gunMul>1&&P.gunArm&&!P.ul&&!G.cut){P.gunMul=1;P.gunArm=0;}};
+
+/* ---- 자세 · 그리기 ---- */
+const _g1rr=rigRender;rigRender=function(key,pal,p,size,tint,tA){if(key==='gunner'&&save.cls==='gunner'&&save.style.gunner==='twin')key='gunner2';return _g1rr(key,pal,p,size,tint,tA);};
+const _g1pp=playerPoseX;playerPoseX=function(){const r=_g1pp();if(save.cls!=='gunner')return r;const p=r.p;
+ if(P.dead||P.hurtT>0||P.dodgeT>0||P.guard||P.parryT>0||(P.ul&&P.ul.lock))return r;
+ const twin=save.style.gunner==='twin',rc=P.recoil||0;
+ if((P.sk&&(P.sk.k==='rhythm'||P.sk.k==='gun'))||(P.atkT>0&&P.atkCur&&P.atkCur.ranged)||P.charging){
+  p.feet=[[3.5,0],[-4.5,0]];p.hip=[-0.3,-10.8];p.lean=-0.05-rc*0.04;p.w=-rc*0.06;p.w2=p.w;p.two=!twin;p.sheath=false;
+  p.hands=twin?[[7-rc,2.5],[5-rc,3.5]]:[[6-rc,3],[1-rc,3.5]];
+  if(P.charging){const ch=curStyle().charge;p.head={t:0,sh:0,gl:ch&&P.chargeT>=ch.time?1:0};}}
+ else if(P.atkT<=0&&!P.sk){p.two=!twin;p.w=twin?1.2:0.35;p.w2=1.4;}
+ return r;};
+const _g1mp=menuPose;menuPose=function(pp){_g1mp(pp);if(save.cls!=='gunner')return;const tw=save.style.gunner==='twin';pp.two=!tw;pp.w=tw?1.2:0.35;pp.w2=1.4;pp.hands=tw?[[3,6],[-2,6.5]]:[[3,5],[0,5.5]];};
+const _g1dp=drawPlayer;drawPlayer=function(){_g1dp();if(!P||save.cls!=='gunner'||P.dead||G.mode==='pvp')return;
+ const S=curStyle(),cx=cxOf(P),mx=gbMax(),n=P.gb||0;
+ for(let i=0;i<mx;i++){ctx.fillStyle=i<n?'#ffd34d':'rgba(255,255,255,.15)';ctx.fillRect(cx-mx*3+i*6,P.y-40,4,6);}
+ const k=P.sk;if(k&&k.k==='rhythm'){const d=k.next-k.t,win=S.beatWide?9:6,r=16+Math.max(0,d)*2.2;
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=Math.abs(d)<=win?'#ffe07a':'#9fe8ff';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(cx,cyOf(P),r,0,7);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(cx,cyOf(P),16,0,7);ctx.stroke();ctx.restore();txt(`🥁 ${k.n}`,cx,P.y-52,'#ffe07a',13,'center');}};
+const _g1gh=gimmickHud;gimmickHud=function(S){const s=_g1gh(S);if(save.cls!=='gunner')return s;
+ const n=P.gb||0,mx=gbMax();return s.replace('기본기 수련 중',`특수탄 ${'◆'.repeat(n)}${'◇'.repeat(mx-n)}`);};
+
+/* ---- 거너 아이템 ---- */
+SPDESC.beat='탄우무 박자 판정 1.5배';SPDESC.gbMax='특수탄 최대 8발 · 궁극기 피해 +20%';
+for(const[k,s]of[['crit10','cheolpo'],['fin30','sanpo'],['aspd15','twin']])SPDESC[k+'@'+s]=`${STYLES.gunner[s].name} 전용 — ${EFF[k]}`;
+const _g1as=applySpecial;applySpecial=function(d,sp){if(sp==='beat'){d.beatWide=true;return;}
+ if(sp==='gbMax'){d.gbMax=true;d.ult=Object.assign({},d.ult,{dmg:d.ult.dmg*1.2});return;}_g1as(d,sp);};
+NAMED.push(
+ {id:'cw_gunner_cheolpo',src:'shop',cost:2200,slot:'weapon',cls:'gunner',rar:3,name:'매사냥 장총',icon:'🎯',st:{atk:0.15,crit:0.02},w:6,sp:'crit10@cheolpo'},
+ {id:'cw_gunner_sanpo',src:'shop',cost:2200,slot:'weapon',cls:'gunner',rar:3,name:'벽력 산탄포',icon:'💥',st:{atk:0.15,hp:20},w:7,sp:'fin30@sanpo'},
+ {id:'cw_gunner_twin',src:'shop',cost:2200,slot:'weapon',cls:'gunner',rar:3,name:'제비 쌍권총',icon:'🔫',st:{atk:0.14,aspd:0.04},w:4,sp:'aspd15@twin'},
+ {id:'gunbelt',src:'shop',cost:1800,slot:'acc',cls:'gunner',rar:3,name:'명사수의 탄띠',icon:'🎗️',st:{crit:0.05,aspd:0.05},w:1},
+ {id:'drumgun',src:'gacha',slot:'weapon',cls:'gunner',rar:4,name:'고수(鼓手)의 화승총',icon:'🥁',st:{atk:0.26,crit:0.04},w:6,sp:'beat'},
+ {id:'gun_art',slot:'weapon',cls:'gunner',rar:5,name:'천붕화승포',icon:'☄️',st:{atk:0.44,crit:0.08,critDmg:0.25},w:7,sp:'gbMax'});
+ART.gun_art={m:6,g:12000,req:5,curse:'cost'};ART_IDS.push('gun_art');
+Object.assign(NAMED.find(n=>n.id==='gun_art'),{src:'raid',curse:'cost',how:'고대의 대장간 제작 — 🔱 징표 6 · 12,000G · 제약 챌린지 5점 이상'});
+
+/* ── ② 2단계 · 궁수 궁극기 · 무기군 · 레벨 곡선 ── */
+/* ===================== 67. 업데이트 11 · 2단계: 궁수 궁극기 리메이크 · 무기군 16종 · 레벨/경험치 기하곡선 ===================== */
+/* ───── 1. 레벨 · 경험치 기하곡선 ───── */
+const LV_MAX=60,need2=l=>Math.round(80*Math.pow(1.15,l-1));
+function areaLv(){if(!run)return save.level;const m=run.mode;
+ try{
+  if(m==='region')return REGIONS[run.region].lv[isDemon()?1:0]+(run.floor-1)*2;
+  if(m==='campaign')return BOSSES[run.chapter].lv||12;
+  if(m==='stage'){const s=run.stg;return s.kind==='pro'?PRO[s.i].lv:(BOSSES[FAC[s.i].bi].lv||5);}
+  if(m==='ancient')return 36+run.floor*2;if(m==='raid')return 42;if(m==='chal')return Math.max(30,save.level);
+  if(m==='dungeon')return DUNGEONS[run.dun.i].lv+2;if(m==='endless')return clamp(3+Math.floor(run.wave*1.5),1,45);
+  if(m==='expedition')return 2+run.floor*6+(run.theme||0)*2;
+ }catch(err){}
+ return save.level;}
+function killXpMul(e){let lv=e.boss&&e.B&&e.B.lv?e.B.lv:areaLv();lv=clamp(Math.round(lv),1,LV_MAX);
+ let f=Math.pow(1.13,lv-1);const gap=save.level-lv;if(gap>5)f*=Math.max(0.1,Math.pow(0.8,gap-5));if(e.boss)f*=0.6;return f;}
+gainXp=function(n){if(save.level>=LV_MAX)return;if(G.g2k)n*=killXpMul(G.g2k);n=Math.round(n);if(n<=0)return;
+ save.xp+=n;if(run)run.xp+=n;
+ while(save.level<LV_MAX&&save.xp>=need2(save.level)){
+  save.xp-=need2(save.level);save.level++;save.sp+=3;sfx('level');
+  if(P&&!P.dead){P.hp=Math.min(P.maxHp,P.hp+P.maxHp*0.25);addFx({kind:'text',x:cxOf(P),y:P.y-40,txt:'LEVEL UP!',col:'#ffd77a',life:70});}
+  toast(`⬆️ 레벨 ${save.level} 달성! 스탯 +3${save.level>=15?' · 스킬 트리 +1':''}`);
+  if(save.level===5&&!save.jobDone)addFx({kind:'banner',txt:'🎖️ 전직 가능 — 거점의 [전직] 메뉴에서 직업을 고르세요',col:'#ffd77a',life:160});
+  if(save.level===15&&save.jobDone)addFx({kind:'banner',txt:'🏯 유파 개방 — 거점의 [캐릭터 · 유파]에서 유파를 고르세요',col:'#ffd77a',life:160});}
+ if(save.level>=LV_MAX)save.xp=0;};
+const _g2ke=killEnemy;killEnemy=function(e){const pv=G.g2k;G.g2k=e;try{_g2ke(e);}finally{G.g2k=pv;}};
+const _g2mg=migrateSave;migrateSave=function(raw){_g2mg(raw);if(save.xp>=need2(save.level))save.xp=need2(save.level)-1;};
+const _g2hud=drawHUD;drawHUD=function(){_g2hud();if(!P||!run)return;bar(18,68,284,3,save.level>=LV_MAX?1:save.xp/need2(save.level),'#6fdc8c','#14261a');};
+const _g2hub=showHub;showHub=function(){_g2hub();const r=document.querySelector('#ui .hub-right');
+ if(r)r.innerHTML=r.innerHTML.replace(/EXP \d+\/\d+/,save.level>=LV_MAX?'MAX':`EXP ${save.xp}/${need2(save.level)}`);};
+
+/* ───── 2. 무기군 ───── */
+Object.assign(WPN,{
+ daedo:{len:20,wid:3,col:'#d8dce8',edge:'#ffffff',guard:4,grip:6,gcol:'#2a1c18',gold:'#8a6a3a'},
+ rapier:{len:18,wid:1,col:'#e8eef6',edge:'#ffffff',guard:5,grip:3,gcol:'#3a2a40',gold:'#d6a93a'},
+ baxe:{len:15,wid:5,col:'#9aa0a8',edge:'#e0e4ec',guard:0,grip:8,gcol:'#5a3a1a',gold:'#5a3a1a'},
+ mace:{len:14,wid:4,col:'#8a8a98',edge:'#c8c8d8',guard:0,grip:6,gcol:'#3a2a1a',spike:'#c8c0b0'},
+ crescent:{len:13,wid:2.4,col:'#e0e6f0',edge:'#ffffff',guard:3,grip:3,gcol:'#2a1830',gold:'#ff3fb4'},
+ claw:{len:6,wid:2,col:'#d8d8e0',edge:'#ffffff',guard:3,grip:1,gcol:'#3a3a3a',gold:'#5a5a5a'},
+ magestaff:{staff:true,len:30,col:'#2a1838',edge:'#5a3a7a',gem:'#b07bff'},
+ magefan:{len:8,wid:6,col:'#e8d8f8',edge:'#b07bff',guard:0,grip:2,gcol:'#3a2a1a'},
+ xbow2:{bow:true,len:6,col:'#5a3a1a',edge:'#9a9aa8'},
+ shortbow:{bow:true,len:7,col:'#8a5a2a',edge:'#d8b070'},
+ bell:{orb:true,col:'#ffd34d'},
+ sfan:{len:8,wid:6,col:'#f3e2a0',edge:'#c0202a',guard:0,grip:2,gcol:'#3a2414'},
+ bostaff:{len:22,wid:2,col:'#6a4a2a',edge:'#9a7a4a',guard:0,grip:12,gcol:'#5a3a1a'},
+ lmusket:{len:18,wid:1.6,col:'#4a4a52',edge:'#9a9aa8',guard:0,grip:5,gcol:'#8a5a2a',gold:'#d6a93a'},
+ hcannon:{len:14,wid:4,col:'#2a2a30',edge:'#6a6a7a',guard:0,grip:4,gcol:'#5a3a1a'}});
+const WFAM={
+ swordsman:{daedo:{n:'대도',ic:'🔪',w:'daedo',aspd:0.85,dmg:1.22,range:1.15,kb:1.5,d:'느리지만 길고 묵직하다'},sae:{n:'세검',ic:'🤺',w:'rapier',aspd:1.2,dmg:0.85,range:0.9,crit:0.06,d:'가볍고 빠르며 급소를 노린다'}},
+ knight:{axe:{n:'전부',ic:'🪓',w:'baxe',aspd:0.9,dmg:1.18,kb:1.6,d:'도끼날로 크게 밀쳐낸다'},mace:{n:'철퇴',ic:'🔨',w:'mace',aspd:0.95,dmg:1.08,brk:1,d:'보스 브레이크 게이지를 더 크게 깎는다'}},
+ dual:{moon:{n:'쌍월도',ic:'🌙',w:'crescent',aspd:0.9,dmg:1.08,range:1.2,d:'휘어진 날로 넓게 벤다'},claw:{n:'철조',ic:'🐾',w:'claw',aspd:1.25,dmg:0.85,steal:0.01,d:'할퀼 때마다 체력을 빨아들인다'}},
+ mage:{staff:{n:'마장검',ic:'🪄',w:'magestaff',aspd:0.85,dmg:1.1,range:1.3,cdr:0.05,d:'지팡이에 숨긴 칼. 사거리가 길다'},fan:{n:'마선',ic:'🎐',w:'magefan',aspd:1.15,dmg:0.92,ult:0.15,d:'부챗살에 마력을 실어 궁극기를 빨리 채운다'}},
+ bowman:{xbow:{n:'석궁',ic:'🎯',w:'xbow2',aspd:0.8,dmg:1.35,crit:0.04,d:'느리지만 한 발이 무겁다'},short:{n:'단궁',ic:'🏹',w:'shortbow',aspd:1.3,dmg:0.8,spd:0.05,d:'짧고 빠른 활. 몸이 가볍다'}},
+ shaman:{bell:{n:'신령 방울',ic:'🔔',w:'bell',aspd:1.1,dmg:0.95,ult:0.2,d:'방울 소리가 궁극기를 부른다'},fan:{n:'부채',ic:'🎐',w:'sfan',aspd:1.0,dmg:1.0,cdr:0.08,d:'바람을 부려 술법이 빨리 돈다'}},
+ brawler:{claw:{n:'조갑',ic:'🐯',w:'claw',aspd:1.1,dmg:1.0,crit:0.05,d:'호랑이 발톱. 급소를 찢는다'},bo:{n:'곤',ic:'🥢',w:'bostaff',aspd:0.9,dmg:1.06,range:1.4,kb:1.3,d:'긴 곤봉으로 거리를 지배한다'}},
+ gunner:{light:{n:'조총',ic:'🔫',w:'lmusket',aspd:1.15,dmg:0.9,spd:0.04,d:'가벼운 총. 쏘면서 움직이기 쉽다'},cannon:{n:'수포',ic:'💣',w:'hcannon',aspd:0.75,dmg:1.4,kb:2,d:'손에 드는 대포. 느리지만 강력하다'}}};
+for(const c in WFAM)for(const k in WFAM[c])WFAM[c][k].id=k;
+const FAMPRE=['낡은 ','단련된 ','명품 ','명장의 ','전설의 '];
+function famLine(F){const a=[];if(F.aspd&&F.aspd!==1)a.push(`공속 x${F.aspd}`);if(F.dmg&&F.dmg!==1)a.push(`피해 x${F.dmg}`);if(F.range)a.push(`사거리 x${F.range}`);if(F.kb)a.push(`밀쳐내기 x${F.kb}`);
+ if(F.crit)a.push(`치명 +${F.crit*100}%`);if(F.ult)a.push(`궁충전 +${F.ult*100}%`);if(F.cdr)a.push(`쿨감 +${F.cdr*100}%`);if(F.steal)a.push(`흡혈 +${F.steal*100}%`);if(F.spd)a.push(`이속 +${F.spd*100}%`);if(F.brk)a.push('브레이크 강화');return a.join(' · ');}
+function curFam(){if(G.mode==='pvp'||!WFAM[save.cls])return null;const w=equippedWeaponOf(save.cls);return w&&w.fam?WFAM[save.cls][w.fam]||null:null;}
+const _famC=new WeakMap(),_g2cst=curStyle;
+curStyle=function(){const b=_g2cst(),f=curFam();if(!f)return b;let m=_famC.get(b);if(!m){m={};_famC.set(b,m);}if(m[f.id])return m[f.id];
+ const d=Object.create(b),dm=f.dmg||1;d.atkSpd=b.atkSpd*(f.aspd||1);
+ d.combo=b.combo.map(h=>Object.assign({},h,{dmg:h.dmg*dm,w:h.ranged?h.w:Math.round(h.w*(f.range||1)),kb:(h.kb==null?3:h.kb)*(f.kb||1)}));
+ if(b.charge)d.charge=Object.assign({},b.charge,{mul:(b.charge.mul||1)*dm,hit:b.charge.hit?Object.assign({},b.charge.hit,{dmg:b.charge.hit.dmg*dm}):b.charge.hit});
+ return m[f.id]=d;};
+const _g2calc=calcStats;calcStats=function(){const r=_g2calc(),f=curFam();if(f){r.crit=Math.min(0.9,r.crit+(f.crit||0));r.ultGain+=f.ult||0;r.cdr+=f.cdr||0;r.steal+=f.steal||0;r.spd*=1+(f.spd||0);}return r;};
+const _g2dm=damageEnemy;damageEnemy=function(e,base,o){o=o||{};const r=_g2dm(e,base,o),f=curFam();
+ if(r>0&&f&&f.brk&&o.melee&&e&&e.boss&&e.brkMax!=null&&!(e.brkT>0)){e.brk+=1.2;e.brkHit=G.t;}return r;};
+const _g2pp=playerPoseX;playerPoseX=function(){const r=_g2pp(),f=curFam();if(f&&f.w){r.p.wpn=f.w;r.p.noWeapon=false;}return r;};
+const _g2gen=genItem;genItem=function(slot,rar,o){o=o||{};const it=_g2gen(slot,rar,o);
+ if(it.slot==='weapon'&&WFAM[it.cls]&&!it.named){const keys=Object.keys(WFAM[it.cls]);const fk=o.fam||(Math.random()<0.6?pick(keys):null);
+  if(fk&&WFAM[it.cls][fk]){const F=WFAM[it.cls][fk];it.fam=fk;it.name=FAMPRE[clamp(it.rar,0,4)]+F.n;it.icon=F.ic;}}
+ return it;};
+const _g2il=itemLines;itemLines=function(it){const s=_g2il(it);if(!it.fam||!WFAM[it.cls]||!WFAM[it.cls][it.fam])return s;const F=WFAM[it.cls][it.fam];
+ return`<span style="color:#ffd77a">🗡️ 무기군 ${F.n} — ${F.d}</span><br><span class="muted">${famLine(F)}</span><br>`+s;};
+function buyFam(fk){if(save.gold<900)return;if(save.inv.length>=INV_MAX){toast('🎒 가방이 가득 찼습니다');return;}
+ save.gold-=900;addItem(genItem('weapon',2,{cls:save.cls,fam:fk}));sfx('coin');writeSave(true);keepScroll(showShop);}
+const _g2shop=showShop;showShop=function(){_g2shop();const sc=document.querySelector('#ui .scroll'),F=WFAM[save.cls];if(!sc||!F)return;
+ sc.insertAdjacentHTML('beforeend',`<div class="sec">🗡️ 무기군 견본 — ${CLASSES[save.cls].name} 전용 · 희귀 등급</div><div class="grid3">${Object.keys(F).map(k=>{const f=F[k];
+  return`<div class="card" style="padding:8px"><div class="ct" style="font-size:13px">${f.ic} ${f.n}</div><div class="kv sm">${f.d}</div><div class="kv sm muted">${famLine(f)}</div><button class="btn sm gold" style="margin-top:4px" onclick="buyFam('${k}')" ${save.gold>=900?'':'disabled'}>구매 900G</button></div>`;}).join('')}</div>`);};
+
+/* ───── 3. 궁수 궁극기 리메이크 ───── */
+Object.assign(STYLES.bowman.rapid.ult,{name:'천라만궁',type:'arcSpiral',dmg:0.35,col:'#9fff7a',desc:'하늘로 뛰어올라 사방으로 화살을 소용돌이처럼 퍼붓는다'});
+Object.assign(STYLES.bowman.snipe.ult,{name:'일시관천',type:'arcLock',n:6,dmg:6,col:'#fff2b0',desc:'시간을 멈추고 최대 6명을 조준해 차례로 꿰뚫는다 (보스 하나면 3연속)'});
+Object.assign(STYLES.bowman.blast.ult,{name:'화우연환',type:'arcCarpet',dmg:2.4,col:'#ff8a3c',desc:'신호탄을 쏘아 올리면 화면 끝에서 끝까지 불화살 폭격이 휩쓴다'});
+for(const k in _sty5)delete _sty5[k];
+const ARC_U={arcSpiral:1,arcLock:1,arcCarpet:1};
+const _g2ru=releaseUlt;releaseUlt=function(S){_g2ru(S);const u=P.ul;if(!u||!ARC_U[u.type])return;
+ if(u.type!=='arcCarpet'){u.lock=true;u.noGrav=true;}if(u.type==='arcLock')addFx({kind:'a_dark',life:150});};
+function arcSpiral(u,U,A){P.vx=0;P.vy=u.t<16?-5:0;
+ if(u.t>=16&&u.t<=166&&u.t%4===0){for(let i=0;i<6;i++){const a=u.t*0.11+i*1.047;
+   shoot({kind:'rarw',x:cxOf(P)-6,y:cyOf(P)-6,w:12,h:12,vx:Math.cos(a)*14,vy:Math.sin(a)*14,life:55,dmg:A*U.dmg,pierce:true,col:U.col,kb:2});}
+  if(u.t%8===0)sfx('shoot');if(u.t%24===0)addFx({kind:'ring',x:cxOf(P),y:cyOf(P),r:10,max:90,col:U.col,life:14});}
+ if(u.t>=176)P.ul=null;}
+function arcLock(u,U,A){P.vx=0;P.vy=0;
+ if(u.t===1){const live=enemies.filter(e=>!e.dead&&!e.hide&&e.ai!=='dummy').sort((a,b)=>(b.boss?1e12:b.hp)-(a.boss?1e12:a.hp)).slice(0,U.n||6);
+  if(!live.length){P.ul=null;return;}u.tg=live.length===1?[live[0],live[0],live[0]]:live;
+  for(const e of new Set(u.tg))addFx({kind:'a_ret',e,life:70,col:U.col});sfx('select');}
+ const tg=u.tg||[];for(let i=0;i<tg.length;i++)if(u.t===64+i*7){const e=tg[i];if(e.dead)continue;
+  addFx({kind:'line',x1:cxOf(P),y1:cyOf(P),x2:cxOf(e),y2:cyOf(e),col:U.col,life:14,w:8});
+  damageEnemy(e,A*U.dmg,{forceCrit:true,noUlt:true,noStack:true,heavy:true,kb:6,col:U.col,dir:cxOf(e)>cxOf(P)?1:-1});sparks(cxOf(e),cyOf(e),U.col,12);sfx('cut');shake(6);}
+ if(u.t===64+tg.length*7+4)signatureCut(U.col,true);
+ if(u.t>=64+tg.length*7+20)P.ul=null;}
+function arcCarpet(u,U,A){const N=14;
+ if(u.t===1){addFx({kind:'line',x1:cxOf(P),y1:cyOf(P),x2:cxOf(P)+P.face*30,y2:0,col:U.col,life:20,w:5});sfx('skill');u.dir=P.face;}
+ const k=(u.t-30)/5;
+ if(Number.isInteger(k)&&k>=0&&k<N){const fr=u.dir>0?k/(N-1):1-k/(N-1),x=G.camX+40+fr*(W-80),y=FLOOR-30;
+  addFx({kind:'line',x1:x-70*u.dir,y1:0,x2:x,y2:y,col:U.col,life:6,w:6});addFx({kind:'ring',x,y,r:10,max:95,col:U.col,life:16});
+  burst(x,y,U.col,14,5,{up:2});for(const e of enemies)if(!e.dead&&Math.abs(cxOf(e)-x)<95&&e.y+e.h>FLOOR-220)
+   damageEnemy(e,A*U.dmg,{kb:5,burn:150,noUlt:true,noStack:true,col:U.col,dir:cxOf(e)>x?1:-1});shake(5);sfx('boom');}
+ if(u.t===30+N*5+10){const tg=enemies.filter(e=>!e.dead).slice(0,3);for(const e of tg){addFx({kind:'ring',x:cxOf(e),y:cyOf(e),r:10,max:140,col:'#ffd34d',life:20});
+   damageEnemy(e,A*U.dmg*2,{kb:10,heavy:true,burn:200,noUlt:true,noStack:true,col:U.col});}shake(12);G.flash={col:U.col,t:10};}
+ if(u.t>=30+N*5+30)P.ul=null;}
+const _g2uu=updateUlt;updateUlt=function(S){const u=P.ul;if(!u||!ARC_U[u.type]){_g2uu(S);return;}
+ u.t++;const U=S.ult,A=P.st.atk;if(u.type==='arcSpiral')arcSpiral(u,U,A);else if(u.type==='arcLock')arcLock(u,U,A);else arcCarpet(u,U,A);};
+const _g2sig=ultSignature;ultSignature=function(S){if(save.cls==='bowman'&&ARC_U[S.ult.type]){
+ if(S.ult.type==='arcSpiral')addFx({kind:'a_wind',col:S.ult.col,life:170});return;}_g2sig(S);};
+/* 그리기 */
+const _g2dpj=drawProjs;drawProjs=function(){const A=[],keep=projs;projs=keep.filter(p=>{if(p.kind==='rarw'){A.push(p);return false;}return true;});
+ try{_g2dpj();}finally{projs=keep;}
+ for(const p of A){ctx.save();ctx.translate(cxOf(p),cyOf(p));ctx.rotate(Math.atan2(p.vy,p.vx));ctx.globalCompositeOperation='lighter';
+  ctx.shadowColor=p.col;ctx.shadowBlur=8;ctx.fillStyle=p.col;ctx.fillRect(-12,-1,20,2);ctx.fillStyle='#ffffff';ctx.fillRect(7,-2,5,4);ctx.restore();}};
+const _g2da=drawAllies;drawAllies=function(){_g2da();
+ for(const f of fx){if(f.kind!=='a_ret'||!f.e||f.e.dead)continue;const e=f.e,cx=cxOf(e),cy=cyOf(e),pr=Math.min(1,f.t/50),r=60-42*pr;
+  ctx.save();ctx.strokeStyle=f.col;ctx.lineWidth=2;ctx.globalAlpha=0.6+0.4*Math.sin(G.t*0.5);ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.stroke();
+  for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]]){ctx.beginPath();ctx.moveTo(cx+a*(r+8),cy+b*(r+8));ctx.lineTo(cx+a*(r-6),cy+b*(r-6));ctx.stroke();}
+  ctx.restore();if(pr>=1)txt('LOCK',cx,cy-r-10,f.col,11,'center');}};
+const _g2fs=drawFxScreen;drawFxScreen=function(){_g2fs();
+ for(const f of fx){if(f.kind==='a_dark'){const a=Math.min(1,f.t/10,(f.life-f.t)/20)*0.6;ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,W,H);}
+  else if(f.kind==='a_wind'){const fade=Math.max(0,Math.min(1,f.t/10,(f.life-f.t)/20));ctx.save();ctx.globalCompositeOperation='lighter';
+   for(let i=0;i<40;i++){const y=(i*53)%H,x=(W+200)-((f.t*22+i*97)%(W+400));ctx.globalAlpha=fade*0.5;ctx.fillStyle=i%3?f.col:'#ffffff';ctx.fillRect(x,y,90,2);}ctx.restore();}}};
+
+/* ── ③ 3단계 · 방어력 · 승급 · 메뉴 정리 ── */
+/* ===================== 68. 업데이트 11 · 3단계: 방어력(LoL 공식) · 2차/3차 전직(승급) · 거점 메뉴 5개로 정리 ===================== */
+/* ───── 1. 방어력 개편: 받는 피해 = 100 / (100 + 방어력) ───── */
+const ARM_BASE={heavy:30,mid:15,light:8};
+const armMul=a=>a>=0?100/(100+a):2-100/(100-a);
+STATS.find(s=>s.k==='def').desc='방어력 +5';
+STAT_L.def='방어력';STK.def='방어력';
+TREE.find(n=>n.id==='t_def').d='방어력 +9';
+RELICS.find(r=>r.id==='armor').desc='방어력 +24';
+CURSE.fragile='방어력 -24';
+const defTxt=s=>s.replace(/방어력 \+([\d.]+)%/g,(m,v)=>`방어력 +${Math.round(parseFloat(v)*3)}`).replace(/방어력 -([\d.]+)%/g,(m,v)=>`방어력 -${Math.round(parseFloat(v)*3)}`);
+const _g3il=itemLines;itemLines=it=>defTxt(_g3il(it));
+const _g3ss=showStele;showStele=function(){_g3ss();const u=$('ui');u.innerHTML=defTxt(u.innerHTML);};
+
+/* ───── 2. 승급(2차 · 3차 전직) 데이터 ───── */
+const ADV={swordsman:['일류검객','백성검'],knight:['성채기사','불괴성주'],dual:['쌍영검객','월하쌍존'],mage:['마검대사','마검존'],
+ bowman:['신궁','천궁성'],shaman:['대술사','천사(天師)'],brawler:['권호','권성'],gunner:['명포수','포성(砲聖)']};
+const ADV_LV=[30,45],BASE_NM={};for(const k in CLASSES)BASE_NM[k]=CLASSES[k].name;
+function ensureAdv(s){s=s||save;if(!s.adv||typeof s.adv!=='object')s.adv={};}
+const advOf=k=>(save.adv&&save.adv[k])||0;
+function applyAdvNames(){for(const k in ADV)CLASSES[k].name=advOf(k)?ADV[k][advOf(k)-1]:BASE_NM[k];}
+function canAdv(){const c=save.cls,t=advOf(c);return !!ADV[c]&&t<2&&save.style[c]!=='basic'&&save.level>=ADV_LV[t];}
+const _g3ds=defaultSave;defaultSave=function(){const d=_g3ds();ensureAdv(d);return d;};
+const _g3mg=migrateSave;migrateSave=function(raw){_g3mg(raw);ensureAdv();applyAdvNames();};
+const _g3bn=beginNew;beginNew=function(i){_g3bn(i);ensureAdv();applyAdvNames();};
+ensureAdv();applyAdvNames();
+TITLES.push({n:'초월자',cond:()=>Object.values(save.adv||{}).some(v=>v>=2),cd:'3차 승급'});
+
+/* 승급 효과: 1차 — 공격·HP +10% · 방어력 +10 · 스킬 쿨 -15% · 콤보 피니시 검기 / 2차 — 위에 더해 +10%·+10 · 궁극기 +30% · 패링 폭발 */
+const _advC=new WeakMap(),_g3cst=curStyle;
+curStyle=function(){const b=_g3cst(),t=G.mode==='pvp'?0:advOf(save.cls);if(!t)return b;let m=_advC.get(b);if(!m){m={};_advC.set(b,m);}if(m[t])return m[t];
+ const d=Object.create(b);d.waveFin=true;d.skillMod=Object.assign({},b.skillMod,{cdMul:(b.skillMod.cdMul||1)*0.85});
+ if(t>=2){d.parryBoom=true;d.ult=Object.assign({},b.ult,{dmg:b.ult.dmg*1.3});}return m[t]=d;};
+
+/* 능력치 최종 계산: 승급 보너스 + 방어력 환산 (가장 바깥) */
+const _g3calc=calcStats;calcStats=function(){const r=_g3calc(),c=save.cls,C=CLASSES[c],t=G.mode==='pvp'?0:advOf(c),base=ARM_BASE[C.armor||'mid']||15;
+ if(t){r.atk*=1+0.1*t;r.maxHp=Math.round(r.maxHp*(1+0.1*t));}
+ let arm;if(G.mode==='pvp')arm=base;
+ else{const other=r.def-save.stats.def*0.012;arm=base+(save.level-1)+save.stats.def*5+other*300+t*10;}
+ r.armor=Math.round(arm);r.def=1-armMul(r.armor);return r;};
+const _g3ch=showChar;showChar=function(){_g3ch();const st=calcStats();document.querySelectorAll('#ui .muted').forEach(el=>{
+ if(/피해감소 \d+%/.test(el.textContent))el.innerHTML=el.innerHTML.replace(/피해감소 (\d+)%/,`🛡️ 방어력 ${st.armor} (받는 피해 -$1%)`);});};
+
+/* 승급 후 유파 고정 */
+const _g3pk=pickStyle;pickStyle=function(k){if(advOf(save.cls)&&k!==save.style[save.cls]){toast('🔒 승급한 직업은 유파를 바꿀 수 없습니다');return;}_g3pk(k);};
+const _g3ts=trStyle;trStyle=function(k){if(advOf(save.cls)&&k!==save.style[save.cls]){toast('🔒 승급한 직업은 유파를 바꿀 수 없습니다');return;}_g3ts(k);};
+
+/* ───── 3. 승급 시험: 내 직업을 비추는 그림자 보스 ───── */
+PAL.shadowP={id:'shadowP',h:'#1a1424',k:'#120e18',s:'#8a7a9a',e:'#c070ff',c:'#241a34',d:'#120c1c',b:'#c070ff',l:'#1a1424',f:'#0a0810',r:'#c070ff',p:'#c070ff',v:'#0a0810',n:'#c8b8e8'};
+const ADVB=[
+ pushBoss({name:'검의 그림자',title:'승급 시험 · 1차',label:'승급 시험',hp:16000,atk:30,lv:30,spd:1.9,w:36,h:80,palette:PAL.shadowP,
+  patterns:['combo','dash','teleport','homing','combo'],blade:{col:'#d8c8ff',glow:'#c070ff'},gold:[200,260],xp:500,def:0.12,lootIdx:3,mid:1,
+  desc:'자신의 칼이 만든 그림자. 내 직업의 모습을 그대로 비춘다.'},Object.assign({},RIGDEF.swordsman,{s:1.55}),
+  {combo:'그림자 연격',dash:'그림자 돌진',teleport:'그림자 걸음',homing:'원념탄',nova:'그림자 해방'}),
+ pushBoss({name:'검의 거울',title:'승급 시험 · 2차',label:'승급 시험',hp:34000,atk:40,lv:45,spd:2.1,w:38,h:84,palette:PAL.shadowP,
+  patterns:['combo','laser','teleport','homing','pillars','dash','volley'],blade:{col:'#ffffff',glow:'#c070ff'},gold:[320,420],xp:900,def:0.18,lootIdx:4,mid:1,
+  desc:'그림자를 넘어선 자 앞에 선 거울. 내가 쓰는 모든 것을 되돌려 준다.'},Object.assign({},RIGDEF.swordsman,{s:1.6}),
+  {combo:'거울 난무',laser:'반사 일섬',teleport:'거울 걸음',homing:'반사탄',pillars:'거울 기둥',dash:'거울 돌진',volley:'파편 난사',nova:'깨지는 거울'})];
+function startAdv(){if(!canAdv())return;const c=save.cls,t=advOf(c),idx=ADVB[t];
+ RIGDEF['b'+idx]=Object.assign({},RIGDEF[c]||RIGDEF.swordsman,{s:t?1.6:1.55,glow:'#c070ff',cape:'#14101e',capeHi:'#c070ff'});
+ const nm=ADV[c][t],D={n:`승급 시험 — ${nm}`,th:t?4:3,sc:t?1.9:1.5,bi:idx,
+  waves:[{e:t?['gwigeom','deathknight','ronin']:['gwigeom','ronin']},
+   {boss:1,talk:[[BOSSES[idx].name,t?'여기까지 온 칼이라면… 네가 가진 모든 것을 되돌려 주마.':'네 칼끝이 흔들리는 걸 나는 안다. 나는 너니까.']]}],
+  outro:[['사당지기',`…훌륭하네. 오늘부터 자네는 「${nm}」일세.`],['사당지기','유파는 이제 자네 몸의 일부야. 바꿀 수 없네. 대신 그 길을 끝까지 가게.']]};
+ setUI('');showDialog([['사당지기',`${CLASSES[c].name}의 길 끝에 선 자만이 다음 이름을 얻네. 자네 칼의 ${t?'거울':'그림자'}와 마주하게.`]],()=>advStart(D));}
+function advStart(D){G.lastStg=null;G.advLast=true;startRun('endless');G.mode='stage';run.mode='stage';run.chapter=0;
+ run.stg={kind:'adv',i:0,D,t:70};run.theme=D.th;run.scale=D.sc;run.wave=0;run.waveActive=false;
+ run.lbl=()=>`🏅 ${D.n} · ${Math.min(run.wave,D.waves.length)}/${D.waves.length}`;
+ fx=fx.filter(f=>f.kind!=='banner');addFx({kind:'banner',txt:'🏅 '+D.n,col:'#c070ff',life:100});}
+const _g3sst=stageStart;stageStart=function(k,i){G.advLast=false;_g3sst(k,i);};
+const _g3scl=stageClear;stageClear=function(){const S=run&&run.stg;if(!S||S.kind!=='adv'){_g3scl();return;}
+ const c=save.cls,t=advOf(c)+1;save.adv[c]=t;applyAdvNames();const g=gainGold(t===1?2000:4000);save.soul=(save.soul||0)+(t===1?15:30);
+ sfx('ult');signatureCut('#c070ff',true);addFx({kind:'banner',txt:`🏅 승급 — ${CLASSES[c].name}`,col:'#c070ff',life:140});writeSave(true);
+ const msg=`🏅 「${CLASSES[c].name}」(으)로 승급! ${g}G · 🔮${t===1?15:30}`;G.after={t:110,fn:()=>showDialog(S.D.outro,()=>showResult(true,msg))};};
+const _g3res=showResult;showResult=function(w,m){const st=run&&run.stg;_g3res(w,m);
+ if(st&&st.kind==='adv'){const td=document.querySelectorAll('#modal table.rec td');if(td[1])td[1].textContent='🏅 승급 시험';}};
+const _g3rr=retryRun;retryRun=function(){if(LASTRUN&&LASTRUN.m==='stage'&&G.advLast){goHub();startAdv();return;}_g3rr();};
+
+function showAdv(){G.back=showHub;const cur=save.cls;
+ const rows=Object.keys(ADV).filter(k=>save.unlocked[k]).map(k=>{const t=advOf(k),path=[BASE_NM[k]].concat(ADV[k]);
+  return`<div class="card ${k===cur?'sel':''}" style="padding:8px"><div class="ct">${CLASSES[k].icon} ${path.map((n,i)=>i<=t?`<b style="color:${i===t?'#ffd77a':'#9a96b5'}">${n}</b>`:`<span class="muted">${n}</span>`).join(' → ')}</div>
+  <div class="kv sm muted">유파: ${save.style[k]==='basic'?'미선택':STYLES[k][save.style[k]].name}${t?' (고정)':''} · 다음 승급: ${t>=2?'완료':`Lv.${ADV_LV[t]}`}</div></div>`;}).join('');
+ const t=advOf(cur),ok=canAdv(),why=!ADV[cur]?'전직 후 승급할 수 있습니다':t>=2?'최고 단계에 도달했습니다':save.style[cur]==='basic'?'먼저 유파를 고르세요 (Lv15)':save.level<ADV_LV[t]?`Lv.${ADV_LV[t]} 필요 (현재 Lv.${save.level})`:'';
+ setUI(`<div class="scr"><div class="hdr"><h2>🏅 승급 · 칭위</h2><button class="btn" onclick="showHub()">← 거점</button></div>
+ <div class="row" style="flex:1;min-height:0;align-items:stretch;gap:12px"><div class="scroll col" style="flex:1">${rows}</div>
+ <div class="card col" style="width:300px"><div class="sec" style="margin-top:0">${CLASSES[cur].icon} ${CLASSES[cur].name}</div>
+ ${ADV[cur]&&t<2?`<div class="kv">다음 이름: <b style="color:#c070ff">${ADV[cur][t]}</b></div><div class="kv sm">시험: ${BOSSES[ADVB[t]].name} (HP ${Math.round(BOSSES[ADVB[t]].hp*DIFF[1].hp).toLocaleString()})</div>`:''}
+ <button class="btn big ${ok?'gold':''}" ${ok?'':'disabled'} onclick="startAdv()">🏅 승급 시험 도전</button><div class="kv sm muted">${why}</div>
+ <div class="sec">승급 효과</div><div class="kv sm">1차: 공격력·HP +10% · 방어력 +10 · 스킬 쿨 -15% · 콤보 마지막 타격에 검기</div>
+ <div class="kv sm">2차: 공격력·HP +10% · 방어력 +10 추가 · 궁극기 +30% · 패링 시 주변 폭발 · 칭호 「초월자」</div>
+ <div class="kv sm" style="color:#ff9a7a">승급하면 그 직업의 유파는 고정됩니다.</div></div></div></div>`);}
+
+/* ───── 4. 거점 메뉴를 5개로 정리 ───── */
+const HUBCAT=[
+ {id:'go',ic:'⚔️',n:'출전',d:'탐험 · 스토리 · 던전 · 레이드',re:/startRun|showWorld|showDungeon|showCampaign|startRaid|showChallenge|startAncient|showOnline/},
+ {id:'grow',ic:'🧍',n:'성장',d:'캐릭터 · 장비 · 대장간 · 승급',re:/showChar|showTree|showEquip|showForge|showAncient|showJobChange|showAdv|showCustom/},
+ {id:'shop',ic:'🏪',n:'상점',d:'상점 · 검혼 제단 · 공방',re:/showShop|showGacha|showWorkshop/},
+ {id:'bond',ic:'📜',n:'인연 · 기록',d:'동료 · 목표 · 도감 · 랭킹',re:/showMates|showTuto|showQuests|showCodex|showRecords|showRank|showStele/},
+ {id:'sys',ic:'⚙️',n:'시스템',d:'설정 · 타이틀로',re:/./}];
+let hubGroups={};
+function hubOpen(id){G.hubCat=G.hubCat===id?null:id;const pnl=$('hubpanel');if(!pnl)return;pnl.innerHTML='';
+ document.querySelectorAll('#ui .hubcat').forEach(b=>b.classList.toggle('sel',b.dataset.c===G.hubCat));
+ if(!G.hubCat){pnl.style.display='none';return;}pnl.style.display='flex';const c=HUBCAT.find(x=>x.id===G.hubCat);
+ pnl.insertAdjacentHTML('beforeend',`<div class="sec" style="margin:0 0 4px">${c.ic} ${c.n}</div>`);
+ for(const b of hubGroups[G.hubCat]||[]){b.style.width='100%';pnl.appendChild(b);}}
+const _g3hub=showHub;showHub=function(){_g3hub();const L=document.querySelector('#ui .hub-left');if(!L)return;
+ L.insertAdjacentHTML('beforeend',`<button class="btn ${canAdv()?'gold':''}" onclick="showAdv()">🏅 승급 · 칭위${canAdv()?'<span class="badge">!</span>':''}</button><button class="btn" onclick="showWorkshop()">🧪 공방</button>`);
+ const title=L.querySelector('.hub-title'),btns=[...L.querySelectorAll('button')],next=btns.find(b=>b.textContent.includes('다음 목표'));
+ hubGroups={};for(const c of HUBCAT)hubGroups[c.id]=[];
+ for(const b of btns){if(b===next)continue;const c=HUBCAT.find(x=>x.re.test(b.getAttribute('onclick')||''));b.style.gridColumn='';hubGroups[c.id].push(b);}
+ L.innerHTML='';L.setAttribute('style','width:250px;display:flex;flex-direction:column;gap:7px;bottom:auto');
+ if(title)L.appendChild(title);if(next){next.style.gridColumn='';L.appendChild(next);}
+ for(const c of HUBCAT){const g=hubGroups[c.id];let n=0,gold=false;
+  for(const b of g){if(b.classList.contains('gold'))gold=true;b.querySelectorAll('.badge').forEach(s=>n+=parseInt(s.textContent)||1);}
+  L.insertAdjacentHTML('beforeend',`<button class="btn big hubcat ${gold&&c.id!=='go'?'gold':''}" data-c="${c.id}" onclick="hubOpen('${c.id}')" style="text-align:left">${c.ic} ${c.n}${n?`<span class="badge">${n}</span>`:''}<br><span class="muted sm">${c.d}</span></button>`);}
+ $('ui').insertAdjacentHTML('beforeend','<div id="hubpanel" class="card scroll" style="position:absolute;left:280px;top:60px;width:300px;max-height:440px;flex-direction:column;gap:4px;display:none"></div>');
+ const keep=G.hubCat===undefined?'go':G.hubCat;G.hubCat=null;if(keep)hubOpen(keep);
+ const r=document.querySelector('#ui .hub-right'),st=calcStats();
+ if(r)r.innerHTML=r.innerHTML.replace(/(치명 \d+%)/,`$1<br>🛡️ 방어력 ${st.armor} (받는 피해 -${Math.round(st.def*100)}%)`);};
+
+/* ── ④ 4단계 앞부분 · 얼굴 · 성별 · 마을 맵 · NPC ── */
+/* ===================== 69. 업데이트 11 · 4단계: 걸어다니는 마을 · NPC · 동료 꾸미기/장비 선물/합동 훈련 · 성별 · 자유 커스터마이징 ===================== */
+/* ───── 1. 얼굴 · 머리 리소스 (여성 얼굴 + 머리 모양 3종) ───── */
+const hr20=rows=>{while(rows.length<20)rows.push('....................');return rows;};
+HDFACE.f=["....................","....................","....................","......sssssss.......",".....sssssssss......","....sssssssssss.....",
+ "....ssssssssssss....","....SsssslLssslLss..","....Sssssssssssss...","....SssLlllsLlllss..","....Sss*eeess*eess..","....SssEeEEssEeEss..",
+ "....SSsbsssssssbSs..",".....SSsssssssss....",".....SSssssmmsss....","......SSssssss......",".......SSssss.......","........SSss........","........SSss........","........SSss........"];
+HDHAIR.long_f=hr20(["....................","......hhhhhhh.......",".....hhjjhhhhhh.....","....hhjhhhhhhhhh....","...hhhhhhhhhhhhhh...","...hhhhhhhhhhhhhhh..",
+ "...hhhhhhhhhh.hhhh..","...hhhhhh.hh..h.hh..","...hhhhh.........h..","...hhhh..........h..","...hhhh..........h..","...hhhh..........H..",
+ "...hhhH.............","...hhhH.............","...hhH..............","...hH..............."]);
+HDHAIR.bob_f=hr20(["....................","......hhhhhhh.......",".....hhjjhhhhhh.....","....hhjhhhhhhhhh....","...hhhhhhhhhhhhhh...","...hhhhhhhhhhhhhhh..",
+ "...hhhhhhhhh.hh.hh..","...hhhhhh.h.....hh..","...hhhhh.........hh.","...hhhhh.........hh.","...hhhhh.........hh.","...hhhhH.........Hh.","...HHHH............."]);
+HDHAIR.pony_f=hr20(["....................","......hhhhhhh.......",".....hhjjhhhhhh.....","....hhjhhhhhhhhh....","...hhhhhhhhhhhhhh...","...hhhhhhhhhhhhhhh..",
+ "...hhhhhhhhh.hhh.h..","...hhhhh.h....h.....","...hhhh.........h...","...hhh...........h..","...hhH..............","...hH..............."]);
+const HAIR_OPT={auto:{n:'직업 기본'},short:{n:'짧은 머리',ov:'novice_m',tails:'band'},long:{n:'긴 생머리',ov:'long_f',tails:'hair'},bob:{n:'단발',ov:'bob_f',tails:null},
+ pony:{n:'포니테일',ov:'pony_f',tails:'pony'},braid:{n:'땋은 머리',ov:'bob_f',tails:'braid'},gat:{n:'갓',ov:'gat_m',tails:'ribbon'},hood:{n:'두건',ov:'hood_m',tails:'scarf'},mage:{n:'고깔',ov:'mage_m',tails:'hair'}};
+const SKIN_T=['#f8d8b8','#f2c8a0','#e0b088','#c89068','#a06a48','#7a4a30'];
+
+/* ───── 2. 성별 · 외형 적용 ───── */
+const HDV_BASE={};for(const k of Object.keys(CLASSES))if(HDV[k])HDV_BASE[k]=HDV[k];
+function lookOf(cls){const L=save.custom&&save.custom.look;return(L&&L[cls||save.cls])||{};}
+genderOf=cls=>(save.custom&&save.custom.gender&&save.custom.gender[cls])||'m';
+const _skC={};
+function applyLook(cls){const B=HDV_BASE[cls];if(!B)return;const L=lookOf(cls),h=HAIR_OPT[L.hair||'auto']||HAIR_OPT.auto;
+ const mk=g=>{const b=B[g]||B.m,v=Object.assign({},b,{f:g==='f'?'f':(b.f||'m')});if(h.ov){v.hair=h.ov;v.tails=h.tails;v.noFace=false;}if(L.hc)v.hc=L.hc;if(L.ec)v.eye=L.ec;return v;};
+ HDV[cls]={m:mk('m'),f:mk('f')};if(cls==='gunner')HDV.gunner2=HDV.gunner;}
+function applyAllLooks(){for(const k in HDV_BASE)applyLook(k);for(const o of[_hdC,porCache,_skC])for(const k in o)delete o[k];}
+const _skP={},_g4pp=playerPal;playerPal=function(cls){const p=_g4pp(cls),sk=lookOf(cls).sk;if(!sk)return p;const k=p.id+'_sk'+sk;return _skP[k]||(_skP[k]=Object.assign({},p,{id:k,s:sk}));};
+const _g4hc=headCanvasHD;headCanvasHD=function(key,g,pal){const c=_g4hc(key,g,pal),m=/_sk(#[0-9a-fA-F]{6})/.exec((pal&&pal.id)||'');if(!m)return c;
+ const ck=key+g+pal.id;if(_skC[ck])return _skC[ck];const o=mkC(c.width,c.height),gg=o.getContext('2d');gg.drawImage(c,0,0);
+ const id=gg.getImageData(0,0,o.width,o.height),d=id.data,a=hexRGB('#f2c8a0'),b=hexRGB(sh('#f2c8a0',-0.16)),na=hexRGB(m[1]),nb=hexRGB(sh(m[1],-0.16));
+ for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const eq=t=>d[i]===t[0]&&d[i+1]===t[1]&&d[i+2]===t[2];
+  if(eq(a)){d[i]=na[0];d[i+1]=na[1];d[i+2]=na[2];}else if(eq(b)){d[i]=nb[0];d[i+1]=nb[1];d[i+2]=nb[2];}}
+ gg.putImageData(id,0,0);return _skC[ck]=o;};
+const _g4ds=defaultSave;defaultSave=function(){const d=_g4ds();d.custom.look={};return d;};
+const _g4mg=migrateSave;migrateSave=function(raw){_g4mg(raw);if(!save.custom.look)save.custom.look={};applyAllLooks();};
+if(!save.custom.look)save.custom.look={};applyAllLooks();
+
+/* 외형 설정 화면에 성별 · 머리 · 눈 · 피부 추가 */
+let lookT=null;
+function setGender(g){for(const k in CLASSES)save.custom.gender[k]=g;applyAllLooks();sfx('select');writeSave(true);keepScroll(showCustom);}
+function setLook(k,v){const L=save.custom.look,o=L[save.cls]||(L[save.cls]={});o[k]=v;applyAllLooks();sfx('select');writeSave(true);keepScroll(showCustom);}
+function setLookLive(k,v){const L=save.custom.look,o=L[save.cls]||(L[save.cls]={});o[k]=v;applyAllLooks();clearTimeout(lookT);lookT=setTimeout(()=>writeSave(true),400);}
+function resetLook(){delete save.custom.look[save.cls];applyAllLooks();writeSave(true);keepScroll(showCustom);}
+function lookAll(){const o=lookOf(save.cls);for(const k in CLASSES)save.custom.look[k]=Object.assign({},o);applyAllLooks();toast('모든 직업에 같은 얼굴을 적용했습니다');writeSave(true);}
+const _g4cu=showCustom;showCustom=function(){_g4cu();const card=document.querySelector('#ui .card.scroll');if(!card)return;const L=lookOf(save.cls),g=genderOf(save.cls);
+ const B=(on,label,fn)=>`<button class="btn sm ${on?'gold':''}" onclick="${fn}">${label}</button>`;
+ card.insertAdjacentHTML('afterbegin',`<div class="sec" style="margin-top:0">⓪ 성별 · 얼굴 · 머리</div>
+ <div class="tgrid">${B(g==='m','🧑 남성',"setGender('m')")}${B(g==='f','👩 여성',"setGender('f')")}<span class="muted sm" style="align-self:center">모든 직업 공통</span></div>
+ <div class="tgrid">${Object.keys(HAIR_OPT).map(k=>B((L.hair||'auto')===k,HAIR_OPT[k].n,`setLook('hair','${k}')`)).join('')}</div>
+ <div class="row" style="gap:14px;flex-wrap:wrap;margin:4px 0">
+ <label class="row sm" style="gap:6px">머리색<input type="color" value="${L.hc||'#2a2018'}" oninput="setLookLive('hc',this.value)" style="width:42px;height:26px;border:1px solid #4a4670;background:none"></label>
+ <label class="row sm" style="gap:6px">눈 색<input type="color" value="${L.ec||'#5a3a20'}" oninput="setLookLive('ec',this.value)" style="width:42px;height:26px;border:1px solid #4a4670;background:none"></label>
+ <span class="sm">피부</span>${SKIN_T.map(c=>`<button class="btn sm ${L.sk===c?'gold':''}" style="background:${c};width:26px;height:22px;padding:0" onclick="setLook('sk','${c}')"></button>`).join('')}</div>
+ <div class="tgrid">${B(false,'↺ 얼굴 기본값','resetLook()')}${B(false,'📋 모든 직업에 같은 얼굴','lookAll()')}</div>`);};
+
+/* 새 게임: 성별 + 난이도 */
+newGame=function(){if(save.hasSave&&!confirm('기존 저장 데이터를 덮어쓰고 새로 시작할까요?'))return;G.ngG=G.ngG||'m';renderNG();};
+function renderNG(){setUI(`<div class="scr center"><h2>새로운 여정</h2><div class="sec">검객의 성별</div><div class="row" style="gap:10px">${[['m','🧑 남성'],['f','👩 여성']].map(([g,n])=>`<button class="btn big ${G.ngG===g?'gold':''}" onclick="G.ngG='${g}';renderNG()">${n}</button>`).join('')}</div>
+ <div class="muted sm" style="margin:4px 0 10px">마을의 무녀 하나(외형 설정)에서 언제든 바꿀 수 있습니다</div><div class="sec">난이도</div>
+ <div class="row" style="gap:14px">${DIFF.map((d,i)=>`<div class="card" style="width:230px;cursor:pointer" onclick="beginNew(${i})"><div class="ct">${['🌱','⚔️','🔥'][i]} ${d.n}</div><div class="kv">${d.desc}</div></div>`).join('')}</div>
+ <button class="btn" style="margin-top:16px" onclick="showMenu()">← 돌아가기</button></div>`);}
+const _g4bn=beginNew;beginNew=function(i){G.vx=null;_g4bn(i);save.custom.look={};for(const k in CLASSES)save.custom.gender[k]=G.ngG||'m';applyAllLooks();writeSave(true);};
+
+/* ───── 3. 마을 맵 ───── */
+const TH_VIL=addRegionTheme({name:'검의 마을',sky:['#5a9ae0','#f0f0e0'],moon:'#fff8e0',far:'#6a8ab0',near:'#3a5a3a',ground:'#8a7458',top:'#b8a070',pcol:'#ffc0dc'},
+ {moon:[380,46,'#fff8d8'],build(){const R=mulberry(2424),sky=bgCanvas();useG(sky);bands(['#4a8ad8','#6aa8e8','#9ac8f0','#d8ecf8','#f4f0e0'],BGH);
+  rcirc(380,46,18,'#fff8d8');for(let i=0;i<8;i++)cloud(R()*BGW,30+R()*70,6+R()*7,'#ffffff','#ffffff','#c8d8e8',R);
+  const far=bgCanvas();useG(far);ridge(170,26,2,5,0.3,'#7a9ac0','#9ab8d8');ridge(190,16,3,7,1.2,'#5a7aa0','#7a9ac0');
+  const mid=bgCanvas();useG(mid);for(let i=0;i<8;i++){const x=i*60+R()*12,w=Math.round(40+R()*14),h=Math.round(24+R()*14);
+   wrapX(x,w,o=>{rr(o,232-h,w,h,'#e8dcc0');rr(o,232-h,w,1,'#c8b890');for(let k=o+6;k<o+w-6;k+=10)rr(k,232-h+6,6,8,'#a07a4a');
+    rpoly([[o-8,232-h],[o+w+8,232-h],[o+w-2,232-h-12],[o+2,232-h-12]],'#3a3e4e');rr(o-10,232-h-2,4,3,'#3a3e4e');rr(o+w+6,232-h-2,4,3,'#3a3e4e');});}
+  rr(0,232,BGW,38,'#8a8070');
+  const near=bgCanvas();useG(near);for(let i=0;i<5;i++){const x=i*100+R()*40;wrapX(x,60,o=>{const cx=o+30;for(let y=0;y<45;y++)rr(cx-2,235-y,4,1,'#4a3020');canopy(cx,185,22,['#a04a6a','#e07aa0','#ffb0d0','#ffe0ec'],R);});}
+  for(let x=0;x<BGW;x+=12)rr(x,228,10,7,'#9a9488');
+  return{sky,layers:[{c:far,par:0.12},{c:mid,par:0.36},{c:near,par:0.66}]};},
+ ground(){const c=mkC(128,35);useG(c);const R=mulberry(77);rr(0,0,128,35,'#8a7458');for(let i=0;i<50;i++)rr(R()*128,4+R()*31,2+R()*3,1,R()<0.5?'#7a6448':'#9a8468');rr(0,0,128,3,'#b8a070');for(let i=0;i<8;i++)rr(R()*128,R()*3,2,1,'#ffc0dc');return c;},
+ plat(){const c=mkC(32,7);useG(c);rr(0,0,32,7,'#7a5a3a');rr(0,0,32,1,'#a07a4a');rr(0,6,32,1,'#3a2a18');return c;}});
+const _g4env=updateEnv;updateEnv=function(){if(run&&run.theme===TH_VIL&&G.t%9===0)env.push({k:'petal',x:G.camX+rand(0,W+100),y:-8,vx:rand(-1,0.2),vy:rand(0.5,1.1),rot:rand(0,6),vr:rand(-0.12,0.12),life:520,col:pick(['#f5a3c7','#ffc8dd','#ffffff'])});_g4env();};
+
+/* NPC 외형 */
+PAL.mer={id:'mer',h:'#2a1418',s:'#f0c8a8',e:'#111',c:'#a03a4a',d:'#6a1a2a',b:'#d6a93a',l:'#3a2028',f:'#1a0c10',r:'#d6a93a'};
+PAL.inn={id:'inn',h:'#5a2a1a',s:'#f0c8a8',e:'#111',c:'#e8d8c0',d:'#8a5a3a',b:'#c0202a',l:'#5a3a2a',f:'#2a1a10',r:'#c0202a'};
+const hv2=o=>({m:o,f:o});
+Object.assign(HDV,{npc_keeper:hv2({f:'m',hair:'mage_m',eye:'#3a2a20',tails:'hair',hc:'#e8e8e8'}),npc_smith:hv2({f:'m',hair:'novice_m',eye:'#3a2a20',tails:'band',hc:'#3a2a1a'}),
+ npc_merchant:hv2({f:'f',hair:'bob_f',eye:'#5a3a20',tails:null,hc:'#2a1418'}),npc_miko:hv2({f:'f',hair:'long_f',eye:'#a02020',tails:'hair',hc:'#141018'}),
+ npc_coach:hv2({f:'m',hair:'novice_m',eye:'#3a2a20',tails:'band',hc:'#1a1418'}),npc_inn:hv2({f:'f',hair:'pony_f',eye:'#5a2a1a',tails:'pony',hc:'#5a2a1a'})});
+Object.assign(RIGDEF,{npc_keeper:{head:'novice',body:'robe',w:'novice',sw:6,ww:5,skirt:9,flare:2,trim:'#d8d8d8'},npc_smith:{head:'novice',body:'garb',w:'club',sw:8,ww:6,skirt:3,flare:1,lw:3,armw:2.4},
+ npc_merchant:{head:'novice',body:'robe',w:'novice',sw:6,ww:5,skirt:8,flare:3},npc_miko:{head:'mage',body:'mrobe',w:'brush',sw:6,ww:6,skirt:12,flare:4},
+ npc_coach:{head:'novice',body:'garb',w:'novice',sw:9,ww:7,skirt:3,flare:1,lw:3.2,armw:2.6},npc_inn:{head:'novice',body:'robe',w:'novice',sw:6,ww:5,skirt:10,flare:3}});
+
+/* NPC · 건물 배치 */
+const VW=2400;
+const nextStepOpt=()=>{try{const nx=campSteps().find(s=>{const c=campStat(s);return c.open&&!c.done;});if(nx){const I=stepInfo(nx);return['▶ '+I.name,new Function(I.fn),true];}}catch(e){}return null;};
+const VNPC=[
+ {id:'keeper',n:'사당지기',ic:'⛩️',x:240,key:'npc_keeper',pal:PAL.elder,
+  lines:()=>['자네 칼끝이 오늘은 어디를 향하나?','강호는 넓고 검은 하나일세.','길을 잃으면 언제든 사당으로 오게.'],
+  opts:()=>[nextStepOpt(),canJob()&&['🎖️ 전직',showJobChange,true],canAdv()&&['🏅 승급 시험',showAdv,true],
+   ['📜 스토리 · 강호 토벌록',showCampaign],['🏅 승급 · 칭위',showAdv],['📘 수련 목표 · 비전서',showTuto],['📜 아르디아 연대기',showChronicle],['📜 유적 연구',showStele]],
+  alert:()=>canJob()||canAdv()},
+ {id:'smith',n:'대장장이 철수',ic:'🔨',x:540,key:'npc_smith',pal:PAL.smith,wpn:'club',
+  lines:()=>['칼은 두드릴수록 정직해지지. 맡겨 보게.','적철광 있으면 가져와. 좋은 걸 만들어 주지.','아티어? 그건 저 안쪽 고대 화로에서나 다루는 물건이야.'],
+  opts:()=>[['🔨 대장간',showForge],['⚒️ 고대의 대장간',showAncient],['🎒 장비',()=>showEquip()]]},
+ {id:'merchant',n:'동방 상인 미령',ic:'🏪',x:840,key:'npc_merchant',pal:PAL.mer,g:'f',
+  lines:()=>['동방에서 갓 들어온 물건이에요! 구경하고 가세요.','재료만 있으면 공방에서 뭐든 만들어 드려요.'],
+  opts:()=>[['🏪 상점',showShop],['🧪 공방',showWorkshop]]},
+ {id:'miko',n:'무녀 하나',ic:'🔮',x:1120,key:'npc_miko',pal:PAL.sh,g:'f',
+  lines:()=>['검혼의 목소리가 들리시나요?','모습을 바꾸고 싶으시면 말씀하세요. 거울도 있답니다.'],
+  opts:()=>[['🔮 검혼 제단',showGacha],['🎨 외형 · 성별',showCustom]]},
+ {id:'board',n:'의뢰 게시판',ic:'📋',x:1380,board:true,
+  lines:()=>['의뢰 게시판이다. 새로 붙은 종이가 바람에 흔들린다.'],
+  opts:()=>[['📜 의뢰 · 업적',showQuests],['🏆 랭킹 · 명예',showRank],['📖 도감',()=>showCodex('enemy')],['📊 전투 기록',showRecords]],
+  alert:()=>QUESTS.some(questReady)||TUTO.some(q=>!save.tuto[q.id]&&q.p())},
+ {id:'coach',n:'교관 돌쇠',ic:'🎯',x:1650,key:'npc_coach',pal:PAL.br,
+  lines:()=>['땀 흘린 만큼 칼이 빨라진다! 동료랑 같이 훈련해 보겠나?','기본기를 무시하지 마라.'],
+  opts:()=>[['🎯 훈련장',()=>startRun('training')],['🤝 합동 훈련',jtPick],['🧍 캐릭터 · 유파',showChar],['🌳 스킬 트리',showTree]],
+  alert:()=>save.sp>0},
+ {id:'inn',n:'주모 연화',ic:'🏮',x:1930,key:'npc_inn',pal:PAL.inn,g:'f',
+  lines:()=>['어서 와요. 동료들 기다리고 있어요.','결투하고 싶다는 손님들이 종종 들러요.'],
+  opts:()=>[['🤝 동료 · 인연',showMates],['🌐 온라인 결투',showOnline]]},
+ {id:'gate',n:'마을 어귀',ic:'🗺️',x:2250,board:true,
+  lines:()=>['마을 어귀. 길이 아르디아 곳곳으로 뻗어 있다.'],
+  opts:()=>[['🗺️ 아르디아 탐험',showWorld,true],['📜 스토리',showCampaign],['🕳️ 수련 던전',showDungeon],['👹 무한 서바이벌',()=>startRun('endless')],
+   ['🗿 레이드',startRaid],['⛓️ 제약 챌린지',showChallenge],['🏛️ 고대 던전',startAncient]]}];
+
+function vHouse(x,w,h,wall,roof){const y=FLOOR;ctx.fillStyle=wall;ctx.fillRect(x-w/2,y-h,w,h);ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(x-w/2,y-h,w,6);
+ ctx.fillStyle=roof;ctx.beginPath();ctx.moveTo(x-w/2-22,y-h+4);ctx.quadraticCurveTo(x,y-h-10,x+w/2+22,y-h+4);ctx.lineTo(x+w/2+2,y-h-28);ctx.lineTo(x-w/2-2,y-h-28);ctx.closePath();ctx.fill();
+ ctx.fillRect(x-w/2-6,y-h-34,w+12,7);ctx.fillStyle='#3a2414';ctx.fillRect(x-16,y-48,32,48);}
+function vBuild(N){const x=N.x,y=FLOOR,t=G.t;ctx.save();
+ switch(N.id){
+  case'keeper':vHouse(x,150,90,'#e8dcc0','#3a3e4e');ctx.fillStyle='#b8202e';ctx.fillRect(x-120,y-160,10,160);ctx.fillRect(x+110,y-160,10,160);ctx.fillRect(x-138,y-170,276,12);ctx.fillRect(x-122,y-144,244,8);break;
+  case'smith':vHouse(x,140,80,'#c8b8a0','#4a3a3a');ctx.fillStyle='#3a3a42';ctx.fillRect(x+60,y-22,34,10);ctx.fillRect(x+70,y-12,14,12);
+   ctx.globalCompositeOperation='lighter';const f=0.5+0.3*Math.sin(t*0.3);ctx.fillStyle=`rgba(255,120,40,${f})`;ctx.beginPath();ctx.arc(x-50,y-20,22,0,7);ctx.fill();break;
+  case'merchant':ctx.fillStyle='#6a4a2a';ctx.fillRect(x-80,y-90,6,90);ctx.fillRect(x+74,y-90,6,90);for(let i=0;i<8;i++){ctx.fillStyle=i%2?'#ffffff':'#c0303a';ctx.fillRect(x-90+i*22.5,y-100,22.5,18);}
+   ctx.fillStyle='#8a6a3a';ctx.fillRect(x-70,y-40,140,8);for(const[a,b]of[[-60,'#d6a93a'],[-20,'#6aa04a'],[20,'#c0303a'],[55,'#5a8ad0']]){ctx.fillStyle=b;ctx.fillRect(x+a,y-52,14,12);}
+   ctx.fillStyle='#7a5a3a';ctx.fillRect(x+90,y-30,30,30);ctx.fillRect(x+96,y-52,22,22);break;
+  case'miko':vHouse(x,110,80,'#f0e8e0','#8a1a24');ctx.strokeStyle='#e8d8a0';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-50,y-96);ctx.quadraticCurveTo(x,y-80,x+50,y-96);ctx.stroke();
+   for(const a of[-30,0,30]){ctx.fillStyle='#ffd34d';ctx.beginPath();ctx.arc(x+a,y-80+Math.sin(t*0.08+a)*2,5,0,7);ctx.fill();}break;
+  case'board':if(N.id==='board'){ctx.fillStyle='#5a3a1a';ctx.fillRect(x-60,y-110,8,110);ctx.fillRect(x+52,y-110,8,110);ctx.fillStyle='#8a6a3a';ctx.fillRect(x-66,y-120,132,70);
+   const R=mulberry(5);for(let i=0;i<7;i++){ctx.fillStyle=i%3?'#f0e8d0':'#ffe8a0';ctx.fillRect(x-58+R()*100,y-114+R()*48,18,16);}}break;
+  case'coach':for(const a of[-70,70]){ctx.fillStyle='#6a4a2a';ctx.fillRect(x+a-3,y-60,6,60);ctx.fillStyle='#c8a060';ctx.fillRect(x+a-12,y-56,24,26);ctx.beginPath();ctx.arc(x+a,y-64,9,0,7);ctx.fill();}
+   ctx.fillStyle='#5a3a1a';ctx.fillRect(x+100,y-70,40,6);for(let i=0;i<4;i++){ctx.fillStyle='#c8ccd8';ctx.fillRect(x+104+i*9,y-100,2,70);}break;
+  case'inn':vHouse(x,170,70,'#e8dcc0','#3a3e4e');ctx.save();ctx.translate(0,-80);vHouse(x,140,50,'#f0e4c8','#3a3e4e');ctx.restore();
+   for(const a of[-70,70]){ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(255,80,60,${0.5+0.2*Math.sin(t*0.1+a)})`;ctx.beginPath();ctx.ellipse(x+a,y-60,9,12,0,0,7);ctx.fill();ctx.globalCompositeOperation='source-over';}break;
+ }
+ if(N.id==='gate'){ctx.fillStyle='#7a7a88';ctx.fillRect(x-90,y-170,22,170);ctx.fillRect(x+68,y-170,22,170);ctx.fillStyle='#3a3e4e';ctx.fillRect(x-110,y-186,220,20);
+  ctx.fillStyle='#8a6a3a';ctx.fillRect(x+110,y-70,6,70);ctx.fillRect(x+96,y-74,60,16);txt('→ 아르디아',x+126,y-62,'#fff7dc',10,'center');}
+ ctx.restore();}
+function drawNPC(N){vBuild(N);const fc=Math.sign(cxOf(P)-N.x)||1;
+ if(N.key){const p=poseBase();p.hip[1]+=Math.sin(G.t*0.06+N.x)*0.3;p.gender=N.g||'m';if(N.wpn){p.wpn=N.wpn;p.w=-0.4;}else p.noWeapon=true;
+  const R=rigRender(N.key,N.pal,p,64);rigBlit(R,N.x,FLOOR,fc);}
+ txt(N.n,N.x,FLOOR-(N.key?62:128),'#ffd77a',11,'center');
+ if(N.alert&&N.alert())txt('!',N.x,FLOOR-(N.key?76:142)+Math.sin(G.t*0.15)*3,'#ff5a5a',20,'center');
+ if(P&&Math.abs(cxOf(P)-N.x)<34)hint(N.x,FLOOR-(N.key?92:156),`[${keyName(bind('up'))}] ${N.board?'살펴보기':'대화'}`);}
+
+/* ── ⑤ 4단계 뒷부분 · 마을 동작 · 동료 승급/꾸미기/선물/합동 훈련 ── */
+/* 마을 진입 · 이동 · 대화 */
+function enterVillage(){initAudio();ensureV16();
+ G.mode='village';run={mode:'village',theme:TH_VIL,floor:1,chapter:0,relics:[],mods:{},kills:0,dmg:0,t:0,gold:0,xp:0,wave:0,rooms:null,cur:0,scale:1,startLevel:save.level};
+ enemies=[];projs=[];parts=[];nums=[];fx=[];drops=[];env=[];allies=[];mates=[];zones=[];
+ Object.assign(G,{after:null,cut:null,zoom:1,slice:null,invert:0,dark:0,distort:0,hitstop:0,shake:0,flash:null,slow:0,v9arena:null,v15holy:null,v15night:0,jt:null});
+ makePlayer();G.roomW=VW;plats=[{x:0,y:FLOOR,w:VW,h:H-FLOOR,oneway:false}];doors=[];
+ props=VNPC.map(N=>({kind:'npc',x:N.x-30,y:FLOOR-60,w:60,h:60,npc:N}));
+ P.x=G.vx!=null?G.vx:260;P.face=G.vf||1;P.y=FLOOR-P.h;G.camX=clamp(cxOf(P)-W/2,0,VW-W);
+ G.scene='play';G.paused=false;G.modal=null;G.back=null;setUI('');setModal('');$('train').style.display='none';$('touch').style.display=isTouch?'block':'none';G.v16spawn=true;}
+function vgo(fn){if(P&&G.mode==='village'){G.vx=P.x;G.vf=P.face;}
+ run=null;P=null;enemies=[];projs=[];parts=[];nums=[];fx=[];drops=[];mates=[];G.mode=null;G.after=null;G.paused=false;G.modal=null;setModal('');
+ G.scene='hub';$('touch').style.display='none';fn();}
+function talkNPC(N){const opts=N.opts().filter(Boolean);G.npcOpts=opts;G.modal='npc';sfx('select');
+ setModal(`<div class="dialog" style="cursor:default"><div class="spk">${N.ic} ${N.n}</div><div class="txt">${pick(N.lines())}</div>
+ <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">${opts.map((o,i)=>`<button class="btn sm ${o[2]?'gold':''}" onclick="vOpt(${i})">${i<9?`<span class="muted">${i+1}</span> `:''}${o[0]}</button>`).join('')}
+ <button class="btn sm" onclick="closeNPC()">닫기 (Esc)</button></div></div>`);}
+function vOpt(i){const o=G.npcOpts&&G.npcOpts[i];if(!o)return;closeNPC();vgo(o[1]);}
+function closeNPC(){G.modal=null;setModal('');}
+
+/* 거점 = 마을. Esc → 전체 메뉴(기존 5분류 거점) */
+const _g4hub=showHub;
+function showMenuHub(){_g4hub();G.back=showHub;const t=document.querySelector('#ui .hub-left .hub-title');
+ if(t&&!save.settings.noVillage)t.insertAdjacentHTML('afterend','<button class="btn gold" onclick="showHub()">🏘️ 마을로 돌아가기</button>');}
+showHub=function(){_g4hub();if(save.settings.noVillage||G.modal==='dialog')return;enterVillage();};
+const _g4op=openPause;openPause=function(){if(G.mode==='village'){if(document.hidden||G.modal)return;vgo(showMenuHub);return;}_g4op();};
+const _g4ok=onKeyMenu;onKeyMenu=function(k){if(G.scene==='play'&&G.modal==='npc'){const isP=k===bind('pause')||k==='escape'||k===ALT_KEYS.pause;
+ if(isP)closeNPC();else if(/^[1-9]$/.test(k))vOpt(+k-1);return true;}return _g4ok(k);};
+const _g4up=useProp;useProp=function(pr){if(pr.kind==='npc'){pr.used=false;talkNPC(pr.npc);return;}_g4up(pr);};
+const _g4dp=drawProps;drawProps=function(){if(G.mode!=='village'){_g4dp();return;}const all=props;props=all.filter(p=>p.kind!=='npc');
+ try{_g4dp();}finally{props=all;}for(const p of all)if(p.kind==='npc')drawNPC(p.npc);};
+const _g4upl=updatePlayer;updatePlayer=function(){if(G.mode==='village'&&P)for(const a of['attack','skill','ult','potion','holy','parry'])clearHit(a);
+ _g4upl();if(G.mode==='village'&&P)P.hp=P.maxHp;};
+function drawVillageHUD(){const C=CLASSES[save.cls],K=a=>keyName(bind(a));
+ ctx.fillStyle='rgba(8,8,16,.8)';ctx.fillRect(10,10,310,46);ctx.strokeStyle='#3a3658';ctx.lineWidth=2;ctx.strokeRect(10,10,310,46);
+ txt(`⛩️ 검의 마을 · ${C.icon} ${C.name} Lv.${save.level}`,18,28,'#fff',13);txt(`💰 ${save.gold.toLocaleString()} G · 🔮 ${save.soul||0} · 🪨 ${save.ore}`,18,47,'#ffd77a',12);
+ ctx.fillStyle='rgba(8,8,16,.6)';ctx.fillRect(W-330,14,320,26);for(const N of VNPC){const x=W-325+N.x/VW*310;txt(N.ic,x,32,'#fff',12,'center',false);if(N.alert&&N.alert())txt('!',x+7,24,'#ff5a5a',11,'center');}
+ if(P){ctx.fillStyle='#ffd77a';ctx.fillRect(W-325+cxOf(P)/VW*310-2,36,4,4);}
+ txt(`[${K('left')}/${K('right')}] 이동 · [${K('up')}] 대화 · [${K('pause')}] 전체 메뉴`,W/2,H-12,'#e8e6f0',12,'center');}
+const _g4hud=drawHUD;drawHUD=function(){if(G.mode==='village'){drawVillageHUD();return;}_g4hud();const j=G.jt;
+ if(j&&P){const D=MATES[j.k];ctx.fillStyle='rgba(8,8,16,.8)';ctx.fillRect(W/2-180,64,360,40);
+  txt(`🤝 합동 훈련 — ${D.name}와 연계 ${j.n}/${j.need}`,W/2,82,D.col,13,'center');
+  txt(`동료가 친 허수아비를 1초 안에 이어 쳐라 · 남은 시간 ${Math.ceil(j.t/60)}초`,W/2,98,'#c8c4e0',11,'center');}};
+const _g4set=showSettings;showSettings=function(b){_g4set(b);const host=G.scene==='play'?$('modal'):$('ui'),c=host&&host.querySelector('.card');
+ if(c){const s=save.settings;c.insertAdjacentHTML('beforeend',`<div class="opt"><span>거점을 메뉴형으로 (마을 끄기)</span><button class="btn sm ${s.noVillage?'gold':''}" onclick="togSet('noVillage')">${s.noVillage?'켜짐':'꺼짐'}</button></div>`);}};
+
+/* ───── 4. 동료: 승급 · 꾸미기 · 장비 선물 · 합동 훈련 ───── */
+const MRANK={
+ eden:{t:['견습 성기사','성기사','고급 성기사','성기사단장'],pal:[null,{c:'#b8c8e8',d:'#3a5aa0',b:'#d6a93a'},{c:'#f0f2f8',d:'#c8a040',b:'#ffd34d'},{c:'#f4f4f8',d:'#a01828',b:'#ffd34d'}],
+  cape:[null,null,'#3a5aa0','#a01828'],wpn:[null,null,null,'holy'],
+  lines:[null,[['에델','견습 딱지를 뗐어요! 이제 정식 성기사예요.'],['에델','방패만이 아니라 검으로도 당신을 지킬게요.']],
+   [['에델','고급 성기사… 단장님이 이 문장을 직접 달아 주셨어요.'],['에델','형제들 몫까지, 끝까지 싸울게요.']],
+   [['','요새의 폐허. 벨카가 에델 앞에 성검을 내민다.'],['벨카','받아라, 에델. 이제부터 네가 성기사단장이다.'],['에델','단장님… 아니, 벨카 님. 이 맹세, 꼭 이어 갈게요.'],['벨카','나는 이제 전대다. 네 등은 저 검객이 지켜 줄 테니, 너는 기사단을 일으켜라.']]]},
+ garret:{t:['은빛 방패 대장','노련한 대장','역전의 용병대장','용병왕'],pal:[null,{c:'#5a5e68',d:'#2a2e38',b:'#c8ccd8'},{c:'#4a4e5a',d:'#1a1e28',b:'#d6a93a'},{c:'#2a2a34',d:'#d6a93a',b:'#ffd34d'}],
+  cape:[null,'#4a4a52','#3a6ad0','#d6a93a'],wpn:[null,null,null,null],
+  lines:[null,[['가렛','대원들이 나를 다시 보더군. 이 나이에 승진이라니.']],[['가렛','역전의 용병대장… 붙이기 민망한 이름이지만, 나쁘진 않아.']],
+   [['가렛','용병왕이라. 웃기는 이름이지. 하지만 왕이라면 지킬 게 많아야 하는 법이다.'],['가렛','그중 첫째가 너다, 친구.']]]},
+ sylva:{t:['세계수의 드루이드','숲의 드루이드장','대드루이드','세계수의 현자'],pal:[null,{c:'#3a7a46',d:'#1a4a22',b:'#e0d080'},{c:'#4a8a52',d:'#2a5a2a',b:'#ffe07a'},{c:'#f0f4e8',d:'#3aa04a',b:'#ffe07a'}],
+  cape:[null,null,'#2a6a30','#7dff8a'],wpn:[null,null,null,null],
+  lines:[null,[['실바','숲이 저를 드루이드장으로 불러요. 조금 쑥스럽네요.']],[['실바','대드루이드… 곁가지가 제 목소리를 더 잘 들어요.']],
+   [['실바','세계수가 저를 현자라 불렀어요. 당신 덕분이에요.'],['실바','이제 숲 전체가 당신 편이에요.']]]}};
+const MREQ=[null,{tier:1,jt:3,lv:15,g:2000},{tier:3,jt:6,lv:30,g:5000},{tier:4,jt:10,lv:45,g:10000}];
+const rankOf=k=>(save.comp&&save.comp[k]&&save.comp[k].rank)||0;
+const MB={};for(const k in MATES)MB[k]={pal:MATES[k].pal,title:MATES[k].title,rig:MATES[k].rig,skillCd:MATES[k].skillCd};
+function mateRig(k){const r=rankOf(k),M=MRANK[k];if(!M||(!M.cape[r]&&!M.wpn[r]))return MB[k].rig;const key=MB[k].rig+'_r'+r;
+ if(!RIGDEF[key]){const o={};if(M.cape[r]){o.cape=M.cape[r];o.capeHi=sh(M.cape[r],0.3);}if(M.wpn[r]){o.w=M.wpn[r];o.glow='#ffd34d';}RIGDEF[key]=Object.assign({},RIGDEF[MB[k].rig],o);HDV[key]=HDV[MB[k].rig];}return key;}
+for(const k in MATES)Object.defineProperties(MATES[k],{
+ pal:{configurable:true,get(){const M=MRANK[k],rp=M&&M.pal[rankOf(k)],p1=rp?palFrom(MB[k].pal,rp):MB[k].pal,c=save.comp&&save.comp[k]&&save.comp[k].pal;return c?palFrom(p1,c):p1;}},
+ title:{configurable:true,get(){if(k==='belka'&&rankOf('eden')>=3)return'전대 성기사단장';return MRANK[k]?MRANK[k].t[rankOf(k)]:MB[k].title;}},
+ rig:{configurable:true,get(){return mateRig(k);}},
+ skillCd:{configurable:true,get(){return Math.round(MB[k].skillCd*(1-0.1*rankOf(k)));}}});
+
+const gearOf=k=>(save.comp[k].gear||(save.comp[k].gear={}));
+const gearSum=(k,s)=>Object.values(gearOf(k)).reduce((a,it)=>a+((it&&it.st&&it.st[s])||0),0);
+const mateMul=k=>(1+0.06*(save.comp[k].jtLv||0)+gearSum(k,'atk'))*(1+0.15*rankOf(k));
+const mateHpMul=k=>(1+0.06*(save.comp[k].jtLv||0))*(1+0.15*rankOf(k));
+const mateArm=k=>Math.round((save.comp[k].jtLv||0)*3+gearSum(k,'def')*300+rankOf(k)*10);
+const _g4tsm=trySpawnMate;trySpawnMate=function(){_g4tsm();for(const m of mates){m.maxHp=Math.round(m.maxHp*mateHpMul(m.k)+gearSum(m.k,'hp'));m.hp=m.maxHp;}};
+const _g4hm=hurtMate;hurtMate=function(m,d){_g4hm(m,d*armMul(mateArm(m.k)));};
+const _g4mt=mateTick;mateTick=function(m){const s=P.st,a=s.atk;s.atk=a*mateMul(m.k);try{_g4mt(m);}finally{s.atk=a;}};
+const _g4mh=mateHit;mateHit=function(m,D){G.mhit=1;try{_g4mh(m,D);}finally{G.mhit=0;}};
+const _g4ms=mateSkill;mateSkill=function(m,D,tg){G.mhit=1;try{return _g4ms(m,D,tg);}finally{G.mhit=0;}};
+
+/* 승급 */
+function mateReq(k){const r=rankOf(k)+1,q=MREQ[r];if(!MRANK[k])return{done:true,why:'이미 성장이 끝난 동료입니다'};if(!q)return{done:true,why:'최고 단계'};
+ const c=save.comp[k],w=[];if(mateTier(k)<q.tier)w.push(`인연 「${TIERS[q.tier].n}」`);if((c.jtLv||0)<q.jt)w.push(`합동 훈련 Lv.${q.jt}`);if(save.level<q.lv)w.push(`주인공 Lv.${q.lv}`);if(save.gold<q.g)w.push(`${q.g.toLocaleString()}G`);
+ return{ok:!w.length,q,next:MRANK[k].t[r],why:w.length?'필요: '+w.join(' · '):`비용 ${q.g.toLocaleString()}G`};}
+function promoteMate(k){const R=mateReq(k);if(!R.ok)return;save.gold-=R.q.g;const c=save.comp[k];c.rank=rankOf(k)+1;addAff(k,20);sfx('ult');writeSave(true);
+ showDialog(MRANK[k].lines[c.rank].concat([['',`— ${MATES[k].name}: 「${MATES[k].title}」 승급 · 공격력 · HP +15% · 스킬 쿨 -10% · 외형 변화 —`]]),showMates);}
+
+/* 장비 선물 */
+function isEquipped(uid){for(const c in save.equip)for(const s in save.equip[c])if(save.equip[c][s]===uid)return true;return false;}
+const gslot=it=>it.slot==='weapon'?'w':it.slot==='acc'?'c':'a';
+function showMateGear(k){G.back=showMates;const D=MATES[k],g=gearOf(k);
+ const cur=[['w','⚔️ 무기'],['a','🛡️ 방어구'],['c','💍 장신구']].map(([s,n])=>`<div class="card" style="padding:8px"><div class="muted sm">${n}</div>${g[s]?`<div style="color:${IR[g[s].rar].col};font-weight:bold;font-size:13px">${g[s].icon} ${g[s].name}</div><div class="kv sm">${itemLines(g[s])}</div><button class="btn sm" onclick="takeGear('${k}','${s}')">돌려받기</button>`:'<div class="muted sm">비어 있음</div>'}</div>`).join('');
+ const inv=save.inv.filter(it=>!it.base&&!isEquipped(it.uid)).sort((a,b)=>b.rar-a.rar).map(it=>`<div class="card" style="padding:6px"><div style="color:${IR[it.rar].col};font-weight:bold;font-size:12px">${it.icon} ${it.name}</div><div class="kv sm">${itemLines(it)}</div><button class="btn sm gold" onclick="giftGear('${k}','${it.uid}')">🎁 선물</button></div>`).join('')||'<div class="muted">선물할 수 있는 장비가 없습니다 (장착 중 · 기본 무기 제외)</div>';
+ setUI(`<div class="scr"><div class="hdr"><h2>🎁 ${D.name}에게 장비 선물</h2><button class="btn" onclick="showMates()">← 동료</button></div>
+ <div class="muted sm">동료는 장비의 공격력 · HP · 방어력만 씁니다. 선물한 장비는 언제든 돌려받을 수 있고, 처음 선물하는 장비는 호감도가 오릅니다.</div>
+ <div class="grid3" style="margin:6px 0">${cur}</div><div class="sec">가방</div><div class="scroll" style="flex:1"><div class="grid3">${inv}</div></div></div>`);}
+function giftGear(k,uid){const it=itemById(uid);if(!it||it.base||isEquipped(uid))return;const s=gslot(it),c=save.comp[k],g=gearOf(k);
+ if(g[s]){if(save.inv.length>=INV_MAX){toast('🎒 가방이 가득 찼습니다');return;}save.inv.push(g[s]);}
+ save.inv.splice(save.inv.indexOf(it),1);g[s]=it;c.gifted=c.gifted||{};if(!c.gifted[uid]){c.gifted[uid]=1;addAff(k,4+it.rar*3);}
+ sfx('level');writeSave(true);showDialog([[MATES[k].name,MATES[k].giftLine]],()=>showMateGear(k));}
+function takeGear(k,s){const g=gearOf(k);if(!g[s])return;if(save.inv.length>=INV_MAX){toast('🎒 가방이 가득 찼습니다');return;}save.inv.push(g[s]);delete g[s];writeSave(true);showMateGear(k);}
+
+/* 꾸미기 */
+const MPRESET=[{n:'기본',v:null},{n:'흑야',v:{c:'#1a1a22',d:'#0a0a0e',b:'#8a8a9a'}},{n:'설백',v:{c:'#f0f0f4',d:'#9a9aa8',b:'#d6a93a'}},{n:'벚꽃',v:{c:'#f5a3c7',d:'#b0607f',b:'#ffffff'}},{n:'심홍',v:{c:'#8a1a24',d:'#4a0a10',b:'#ffd34d'}}];
+let mlT=null;
+function drawMatePreview(k){const el=$('mpv');if(!el)return;const g=el.getContext('2d');g.setTransform(1,0,0,1,0,0);
+ const bg=g.createLinearGradient(0,0,0,260);bg.addColorStop(0,'#120f22');bg.addColorStop(1,'#2a1a2a');g.fillStyle=bg;g.fillRect(0,0,240,260);g.fillStyle='#3a3658';g.fillRect(0,214,240,2);
+ const p=poseBase();p.gender='m';const R=rigRender(MATES[k].rig,MATES[k].pal,p,64);g.imageSmoothingEnabled=false;g.drawImage(R.c,-8,-38,256,256);}
+function showMateLook(k){G.back=showMates;const D=MATES[k],cur=save.comp[k].pal||{c:D.pal.c,d:D.pal.d,b:D.pal.b};
+ const ci=(key,n)=>`<label class="row sm" style="gap:6px">${n}<input type="color" value="${cur[key]}" oninput="setMateCol('${k}','${key}',this.value)" style="width:42px;height:26px;border:1px solid #4a4670;background:none"></label>`;
+ setUI(`<div class="scr"><div class="hdr"><h2>🎨 ${D.name} 꾸미기</h2><button class="btn" onclick="showMates()">← 동료</button></div>
+ <div class="row" style="align-items:stretch;gap:12px"><div class="card col" style="align-items:center"><canvas id="mpv" width="240" height="260" style="image-rendering:pixelated;border:1px solid #2e2b48"></canvas><div class="muted sm">「${D.title}」</div></div>
+ <div class="card" style="flex:1"><div class="sec" style="margin-top:0">색상</div><div class="row" style="gap:14px;flex-wrap:wrap">${ci('c','옷')}${ci('d','안감')}${ci('b','장식')}</div>
+ <div class="sec">프리셋</div><div class="tgrid">${MPRESET.map((p,i)=>`<button class="btn sm" onclick="setMatePreset('${k}',${i})">${p.n}</button>`).join('')}</div>
+ <div class="muted sm" style="margin-top:8px">승급하면 기본 의상이 바뀝니다. 직접 고른 색은 승급 의상 위에 덧입혀집니다 (프리셋 「기본」으로 되돌리기).</div></div></div></div>`);
+ drawMatePreview(k);}
+function setMateCol(k,key,v){const c=save.comp[k],D=MATES[k];if(!c.pal)c.pal={c:D.pal.c,d:D.pal.d,b:D.pal.b};c.pal[key]=v;drawMatePreview(k);clearTimeout(mlT);mlT=setTimeout(()=>writeSave(true),400);}
+function setMatePreset(k,i){const v=MPRESET[i].v;save.comp[k].pal=v?Object.assign({},v):null;sfx('select');writeSave(true);showMateLook(k);}
+
+/* 합동 훈련: 동료가 친 허수아비를 1초 안에 이어 치기 15회 / 90초 */
+function startJT(k){const c=save.comp&&save.comp[k];if(!c||mateTier(k)<1){toast('인연 「동료」 이상인 동료와만 합동 훈련을 할 수 있습니다');return false;}
+ if(c.jtRun===save.rec.runs){toast('합동 훈련은 탐험을 한 번 다녀온 뒤 다시 할 수 있습니다');return false;}
+ if((c.jtLv||0)>=10){toast('합동 훈련을 모두 마쳤습니다 (Lv.10)');return false;}
+ save.compSel=k;startRun('training');G.jt={k,t:5400,n:0,need:15};addFx({kind:'banner',txt:`🤝 합동 훈련 — ${MATES[k].name}`,col:MATES[k].col,life:100});return true;}
+function jtPick(){const k=save.compSel;if(!k||!startJT(k))showHub();}
+function jtDone(ok){const j=G.jt;if(!j||j.done)return;j.done=1;const c=save.comp[j.k];
+ if(ok){c.jtLv=Math.min(10,(c.jtLv||0)+1);c.jtRun=save.rec.runs;addAff(j.k,15);sfx('level');addFx({kind:'banner',txt:`🤝 합동 훈련 성공 — ${MATES[j.k].name} 훈련 Lv.${c.jtLv}`,col:MATES[j.k].col,life:110});}
+ else addFx({kind:'banner',txt:'⏱ 시간 초과 — 다시 도전하세요',col:'#ff9a9a',life:100});
+ writeSave(true);G.after={t:120,fn:goHub};}
+const _g4dm=damageEnemy;damageEnemy=function(e,base,o){o=o||{};const r=_g4dm(e,base,o),j=G.jt;
+ if(r>0&&j&&!j.done&&e&&e.ai==='dummy'){const mine=G.mhit||o.col===MATES[j.k].col;
+  if(mine)e.mLast=G.t;else if(G.t-(e.mLast==null?-99:e.mLast)<60){e.mLast=-99;j.n++;addFx({kind:'text',x:cxOf(e),y:e.y-30,txt:`연계! ${j.n}/${j.need}`,col:MATES[j.k].col,life:40});sfx('select');if(j.n>=j.need)jtDone(true);}}
+ return r;};
+const _g4uw=updateWorld;updateWorld=function(){_g4uw();const j=G.jt;if(j&&!j.done&&G.mode==='training'&&--j.t<=0)jtDone(false);};
+const _g4gh=goHub;goHub=function(){G.jt=null;_g4gh();};
+
+/* 동료 화면: 관리 패널 */
+const _g4sm=showMates;showMates=function(){_g4sm();const sc=document.querySelector('#ui .scroll');if(!sc)return;
+ const ks=Object.keys(MATES).filter(k=>save.comp&&save.comp[k]);
+ sc.insertAdjacentHTML('beforeend',`<div class="sec">🛠️ 동료 관리 — 승급 · 장비 · 꾸미기 · 합동 훈련</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${ks.map(k=>{
+  const D=MATES[k],c=save.comp[k],g=gearOf(k),R=mateReq(k),M=MRANK[k],nm=it=>it?`${it.icon} ${it.name}`:'없음';
+  const path=M?M.t.map((n,i)=>i===rankOf(k)?`<b style="color:${D.col}">${n}</b>`:`<span class="muted">${n}</span>`).join(' → '):`<b style="color:${D.col}">${D.title}</b>`;
+  return`<div class="card" style="padding:8px"><div class="ct" style="font-size:13px">${D.name} <span class="muted sm">훈련 Lv.${c.jtLv||0}/10</span></div><div class="kv sm">${path}</div>
+  <div class="kv sm">⚔ ${nm(g.w)} · 🛡 ${nm(g.a)} · 💍 ${nm(g.c)}</div><div class="kv sm muted">공격 x${mateMul(k).toFixed(2)} · HP x${mateHpMul(k).toFixed(2)} · 방어력 ${mateArm(k)}</div>
+  <div class="kv sm ${R.ok?'':'muted'}">${R.done?'✔ '+R.why:`다음: 「${R.next}」 — ${R.why}`}</div>
+  <div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">${!R.done?`<button class="btn sm ${R.ok?'gold':''}" ${R.ok?'':'disabled'} onclick="promoteMate('${k}')">🎖️ 승급</button>`:''}
+  <button class="btn sm" onclick="showMateLook('${k}')">🎨 꾸미기</button><button class="btn sm" onclick="showMateGear('${k}')">🎁 장비 선물</button>
+  <button class="btn sm" onclick="startJT('${k}')" ${c.jtRun===save.rec.runs||(c.jtLv||0)>=10?'disabled':''}>🤝 합동 훈련</button></div></div>`;}).join('')}</div>`);};
+
+/* ── 버전 표기: 버전 11 ── */
+const _v11ti=showTitle;showTitle=function(){_v11ti();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 · 버전 11';};
+const _v11mn=showMenu;showMenu=function(){_v11mn();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 · 버전 11 · 자동 저장 지원';};
+
+/* ── ⑥ 저장 슬롯 · 내보내기 ── */
+/* ===================== 70. 저장 슬롯 5개 · 내보내기(다운로드) · 가져오기 · 자동 백업 ===================== */
+const SLOT_N=5,SLOT_CUR_KEY='swordmaster_slot';
+const slotKey=n=>n===1?SAVE_KEY:SAVE_KEY+'_s'+n;
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true;}catch(e){return false;}};
+const lsDel=k=>{try{localStorage.removeItem(k);}catch(e){}};
+let curSlot=clamp(parseInt(lsGet(SLOT_CUR_KEY))||1,1,SLOT_N);
+function readSlot(n){try{return JSON.parse(lsGet(slotKey(n)));}catch(e){return null;}}
+const isSaveObj=o=>!!(o&&typeof o==='object'&&typeof o.level==='number'&&o.rec&&o.cls);
+function backupSlot(n){const v=lsGet(slotKey(n));if(v)lsSet(slotKey(n)+'_bak',v);}
+function refreshRuntime(){applyAllLooks();applyAdvNames();applyCrt();}
+
+/* 저장 · 불러오기를 현재 슬롯 기준으로 */
+writeSave=function(silent){save.hasSave=true;save.savedAt=Date.now();
+ if(lsSet(slotKey(curSlot),JSON.stringify(save))){if(!silent)toast(`💾 자동 저장됨 (슬롯 ${curSlot})`);}
+ else toast('⚠️ 저장 공간이 부족합니다 — 슬롯을 정리하거나 내보내기 해 두세요');};
+loadSave=function(){try{const s=JSON.parse(lsGet(slotKey(curSlot)));if(s){save=deepMerge(defaultSave(),s);migrateSave(s);return true;}}catch(e){}
+ const st=save&&save.settings;save=defaultSave();if(st)save.settings=st;return false;};
+wipeSave=function(){if(!confirm(`슬롯 ${curSlot}의 진행 상황을 삭제할까요? (직전 상태는 백업으로 남습니다)`))return;
+ backupSlot(curSlot);lsDel(slotKey(curSlot));const s=save.settings;save=defaultSave();save.settings=s;refreshRuntime();toast('저장 데이터를 초기화했습니다');showSettings();};
+
+/* 슬롯 전환 */
+function resetRuntime(){run=null;P=null;enemies=[];projs=[];parts=[];nums=[];fx=[];drops=[];mates=[];
+ Object.assign(G,{mode:null,after:null,paused:false,modal:null,jt:null,vx:null,vf:1});rewardOpts=null;dlg=null;setModal('');}
+function switchSlot(n,then){if(save.hasSave)writeSave(true);resetRuntime();curSlot=n;lsSet(SLOT_CUR_KEY,String(n));
+ loadSave();refreshRuntime();toast(`💾 슬롯 ${n}${save.hasSave?' 불러옴':' (빈 슬롯)'}`);(then||showMenu)();}
+function newInSlot(n){const s=readSlot(n);if(s&&!confirm(`슬롯 ${n}에 있는 Lv.${s.level} 데이터를 덮어쓰고 새로 시작할까요? (백업이 남습니다)`))return;
+ switchSlot(n,()=>newGame(true));}
+const _g5ng=newGame;newGame=function(force){
+ if(save.hasSave&&force!==true){showSlots('new');return;}
+ if(force===true&&save.hasSave){backupSlot(curSlot);save.hasSave=false;try{_g5ng();}finally{save.hasSave=true;}return;}
+ _g5ng();};
+function delSlot(n){const s=readSlot(n);if(!s)return;if(!confirm(`슬롯 ${n} (Lv.${s.level})을 삭제할까요? 직전 상태는 백업으로 남습니다.`))return;
+ backupSlot(n);lsDel(slotKey(n));if(n===curSlot){const st=save.settings;save=defaultSave();save.settings=st;refreshRuntime();}toast(`🗑 슬롯 ${n} 삭제`);showSlots(G.slotMode);}
+function restoreBak(n){const b=lsGet(slotKey(n)+'_bak');if(!b)return;if(!confirm(`슬롯 ${n}을 직전 백업으로 되돌릴까요?`))return;
+ const cur=lsGet(slotKey(n));lsSet(slotKey(n),b);if(cur)lsSet(slotKey(n)+'_bak',cur);
+ if(n===curSlot)switchSlot(n,()=>showSlots(G.slotMode));else{toast('↺ 백업 복원');showSlots(G.slotMode);}}
+
+/* 내보내기 */
+const ymd=()=>{const d=new Date();return`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;};
+function dlJSON(obj,name){try{const b=new Blob([JSON.stringify(obj)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');
+ a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);toast('⬇ 내려받기를 시작했습니다');}
+ catch(e){toast('내려받기가 막혀 있어요 — 📋 복사를 이용하세요');}}
+function exportSlot(n){if(n===curSlot&&save.hasSave)writeSave(true);const s=readSlot(n);if(!s)return;dlJSON(s,`검성_슬롯${n}_Lv${s.level}_${ymd()}.json`);}
+function exportAll(){if(save.hasSave)writeSave(true);const o={app:'swordmaster',ver:1,slots:{}};for(let n=1;n<=SLOT_N;n++){const s=readSlot(n);if(s)o.slots[n]=s;}
+ if(!Object.keys(o.slots).length){toast('내보낼 데이터가 없습니다');return;}dlJSON(o,`검성_전체슬롯_${ymd()}.json`);}
+function copySlot(n){if(n===curSlot&&save.hasSave)writeSave(true);const t=lsGet(slotKey(n));if(!t)return;const io=$('slotio');if(io)io.value=t;
+ if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('📋 세이브 코드를 복사했습니다'),()=>toast('아래 칸의 코드를 직접 복사하세요'));else toast('아래 칸의 코드를 직접 복사하세요');}
+
+/* 가져오기 */
+function importText(text,n){let o;try{o=JSON.parse(text);}catch(e){toast('⚠️ 올바른 세이브 파일이 아닙니다');return;}
+ if(o&&o.slots&&typeof o.slots==='object'){const ks=Object.keys(o.slots).filter(k=>isSaveObj(o.slots[k])&&+k>=1&&+k<=SLOT_N);
+  if(!ks.length){toast('⚠️ 가져올 슬롯이 없습니다');return;}
+  if(!confirm(`전체 백업에서 슬롯 ${ks.join(', ')}을(를) 덮어쓸까요? (기존 데이터는 백업으로 남습니다)`))return;
+  for(const k of ks){backupSlot(+k);lsSet(slotKey(+k),JSON.stringify(o.slots[k]));}
+  toast(`⬆ ${ks.length}개 슬롯을 가져왔습니다`);if(ks.includes(String(curSlot)))switchSlot(curSlot,()=>showSlots(G.slotMode));else showSlots(G.slotMode);return;}
+ if(!isSaveObj(o)){toast('⚠️ 검성 세이브 데이터가 아닙니다');return;}
+ const old=readSlot(n);if(old&&!confirm(`슬롯 ${n} (Lv.${old.level})을 가져온 데이터(Lv.${o.level})로 덮어쓸까요? (기존 데이터는 백업으로 남습니다)`))return;
+ backupSlot(n);lsSet(slotKey(n),JSON.stringify(o));toast(`⬆ 슬롯 ${n}에 가져왔습니다`);
+ if(n===curSlot)switchSlot(n,()=>showSlots(G.slotMode));else showSlots(G.slotMode);}
+function pickImport(n){G.impTarget=n;const f=$('slotfile');if(f){f.value='';f.click();}}
+function importFile(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importText(String(r.result),G.impTarget||curSlot);r.readAsText(f);}
+function importPaste(){const t=($('slotio')||{}).value||'',n=parseInt(($('slotsel')||{}).value)||curSlot;if(!t.trim()){toast('세이브 코드를 붙여 넣으세요');return;}importText(t.trim(),n);}
+
+/* 슬롯 화면 */
+function slotDesc(s){const c=s.cls,tier=s.adv&&s.adv[c];
+ const nm=tier&&ADV[c]?ADV[c][tier-1]:(BASE_NM[c]||(CLASSES[c]&&CLASSES[c].name)||c),ic=CLASSES[c]?CLASSES[c].icon:'❔';
+ const sex=s.custom&&s.custom.gender&&s.custom.gender[c]==='f'?'👩':'🧑';
+ return`<div class="ct">${ic} ${nm} Lv.${s.level} ${sex}${s.custom&&s.custom.title?` <span style="color:#ffd77a">〔${s.custom.title}〕</span>`:''}</div>
+ <div class="kv sm">스토리 ${s.chapter||0}/5장 · ${s.demon?'2부 마왕강림':'1부 혈천교편'} · 난이도 ${(DIFF[s.settings&&s.settings.diff]||DIFF[1]).n}</div>
+ <div class="kv sm">💰 ${(s.gold||0).toLocaleString()} G · 🔮 ${s.soul||0} · 플레이 ${fmtT((s.rec&&s.rec.time)||0)}</div>
+ <div class="kv sm muted">마지막 저장 ${s.savedAt?new Date(s.savedAt).toLocaleString('ko-KR'):'-'}</div>`;}
+function showSlots(mode,from){G.slotMode=mode||'';if(from)G.slotFrom=from;G.back=G.slotFrom||showMenu;if(save.hasSave)writeSave(true);
+ const cards=Array.from({length:SLOT_N},(_,i)=>{const n=i+1,s=readSlot(n),cur=n===curSlot,bak=!!lsGet(slotKey(n)+'_bak'),B=(l,f,c)=>`<button class="btn sm ${c||''}" onclick="${f}">${l}</button>`;
+  const main=mode==='new'?B(s?'⚠ 덮어쓰고 새로 시작':'✨ 여기서 새로 시작',`newInSlot(${n})`,s?'red':'gold')
+   :cur?'<span class="badge" style="background:#3a7a4a">사용 중</span>':B(s?'▶ 불러오기':'이 슬롯 선택',`switchSlot(${n})`,s?'gold':'');
+  return`<div class="card ${cur?'sel':''}" style="padding:8px"><div class="row" style="justify-content:space-between"><b>슬롯 ${n}</b>${main}</div>
+  ${s?slotDesc(s):'<div class="kv muted" style="margin:10px 0">비어 있음</div>'}
+  <div class="row" style="gap:4px;margin-top:6px;flex-wrap:wrap">${s?B('⬇ 내보내기',`exportSlot(${n})`)+B('📋 복사',`copySlot(${n})`):''}${B('⬆ 가져오기',`pickImport(${n})`)}${s?B('🗑',`delSlot(${n})`,'red'):''}${bak?B('↺ 백업 복원',`restoreBak(${n})`):''}</div></div>`;}).join('');
+ setUI(`<div class="scr"><div class="hdr"><h2>💾 저장 슬롯${mode==='new'?' — 새 여정을 시작할 슬롯을 고르세요':''}</h2>
+ <div class="row"><button class="btn" onclick="exportAll()">⬇ 전체 내보내기</button><button class="btn" onclick="pickImport(${curSlot})">⬆ 파일 가져오기</button><button class="btn" onclick="G.back()">← 돌아가기</button></div></div>
+ <div class="scroll" style="flex:1"><div class="grid3">${cards}</div>
+ <div class="card" style="margin-top:10px"><div class="sec" style="margin-top:0">📋 세이브 코드로 옮기기 (다운로드가 막힌 환경 · 다른 기기)</div>
+ <textarea id="slotio" rows="3" placeholder="여기에 세이브 코드를 붙여 넣거나, 슬롯의 📋 복사를 누르면 코드가 표시됩니다" onkeydown="event.stopPropagation()" onkeyup="event.stopPropagation()"
+  style="width:100%;font:11px monospace;background:#0b0a14;color:#d8d6e8;border:1px solid #4a4670;padding:6px;resize:vertical"></textarea>
+ <div class="row" style="margin-top:4px"><select id="slotsel" style="font:inherit;background:#141322;color:#fff;border:1px solid #4a4670;padding:3px">${Array.from({length:SLOT_N},(_,i)=>`<option value="${i+1}" ${i+1===curSlot?'selected':''}>슬롯 ${i+1}</option>`).join('')}</select>
+ <button class="btn sm gold" onclick="importPaste()">이 슬롯으로 가져오기</button></div></div>
+ <div class="muted sm" style="margin-top:8px;line-height:1.6">• 세이브는 이 브라우저에 저장됩니다. 브라우저 데이터를 지우면 사라지니 가끔 ⬇ 내보내기로 파일을 받아 두세요.<br>
+ • 덮어쓰기 · 삭제 · 가져오기 · 새로 시작 직전의 상태는 슬롯마다 1개씩 자동 백업되고, ↺ 백업 복원으로 되돌릴 수 있습니다.<br>• 「전체 내보내기」 파일을 가져오면 들어 있는 슬롯들이 한 번에 복원됩니다.</div></div>
+ <input type="file" id="slotfile" accept=".json,application/json" style="display:none" onchange="importFile(this)"></div>`);}
+
+/* 메뉴 · 설정에 연결 */
+const _g5mn=showMenu;showMenu=function(){_g5mn();const m=document.querySelector('#ui .menu-main');if(!m)return;
+ const b=[...m.querySelectorAll('button')].find(x=>x.textContent.includes('환경 설정'));
+ if(b)b.insertAdjacentHTML('beforebegin',`<button class="btn big" onclick="showSlots('',showMenu)">💾 저장 슬롯 · 내보내기 <span class="muted">슬롯 ${curSlot}</span></button>`);
+ const v=document.querySelector('#ui .ver');if(v)v.textContent+=` · 슬롯 ${curSlot}/${SLOT_N}`;};
+const _g5set=showSettings;showSettings=function(b){_g5set(b);if(G.scene==='play')return;const c=$('ui').querySelector('.card');
+ if(c)c.insertAdjacentHTML('beforeend',`<div class="opt"><span>저장 슬롯 (현재 ${curSlot})</span><button class="btn sm" onclick="rebinding=null;writeSave(true);showSlots('',()=>showSettings())">💾 슬롯 · 내보내기</button></div>`);};
+
+/* @@V11-END@@ */
 
 /* ===================== 44. 메인 루프 · 초기화 ===================== */
 let lastT=performance.now(),acc=0,slowTog=false;
