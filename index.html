@@ -400,7 +400,7 @@ function calcStats(){
  if(G.mode==='pvp'){r.maxHp=Math.round(C.hp*2.6*(sm.hp||1));r.atk=C.atk*1.8*(sm.atk||1);r.crit=0.08+(sm.crit||0);r.critDmg=1.5;r.spd=C.spd*(sm.spd||1);r.aspd=S.atkSpd;r.cdr=0;r.def=0;r.steal=0;r.ultGain=0.7;r.boss=0;r.gold=0;}
  return r;
 }
-const xpNeed=l=>50+l*45;
+let xpNeed=l=>50+l*45;
 function gainXp(n){
  n=Math.round(n);save.xp+=n;if(run)run.xp+=n;
  while(save.xp>=xpNeed(save.level)){
@@ -2983,7 +2983,7 @@ function addItem(it,silent){
 }
 function itemLines(it){
  const a=Object.keys(it.st||{}).map(k=>`${STAT_L[k]} +${k==='hp'?Math.round(it.st[k]):(it.st[k]*100).toFixed(1)+'%'}`);
- const t=[a.join(' · ')];t.push(`무게 ${it.w}${it.heavy===true?' · 중장':it.heavy===false?' · 경장':''}${it.cls?' · '+CLASSES[it.cls].icon+CLASSES[it.cls].name+' 전용':''}`);
+ const t=[a.join(' · ')];if(it.description)t.push(it.description);t.push(`무게 ${it.w}${it.heavy===true?' · 중장':it.heavy===false?' · 경장':''}${it.cls?' · '+CLASSES[it.cls].icon+CLASSES[it.cls].name+' 전용':''}`);
  if(it.sp)t.push(`<span style="color:#ffd77a">★ ${SPDESC[it.sp]}</span>`);if(it.how)t.push(`<span class="muted">획득: ${it.how}</span>`);
  return t.join('<br>');
 }
@@ -3397,7 +3397,7 @@ function showEquip(tab){
  const C=CLASSES[save.cls],eq=save.equip[save.cls]||(save.equip[save.cls]={}),E=eqStats(),st=calcStats(),lr=E.load/E.cap;
  const slots=SLOTS.map(([s,n,ic])=>{const it=itemById(eq[s]),bad=it&&s==='weapon'&&it.cls&&it.cls!==save.cls;
   return`<div class="card" style="padding:6px"><div class="muted sm">${ic} ${n}</div>${it?`<div style="color:${IR[it.rar].col};font-weight:bold;font-size:12px">${it.icon} ${it.name}</div>${bad?'<div class="sm" style="color:#ff7070">직업 불일치</div>':''}<button class="btn sm" style="margin-top:3px" onclick="unequip('${s}')">해제</button>`:'<div class="muted sm">비어 있음</div>'}</div>`;}).join('');
- const list=save.inv.filter(it=>eqTab==='all'||it.slot===eqTab).sort((a,b)=>b.rar-a.rar).map(it=>{const on=eq[it.slot]===it.uid,bad=it.slot==='weapon'&&it.cls&&it.cls!==save.cls;
+ const list=save.inv.filter(it=>!it.itemType&&(eqTab==='all'||it.slot===eqTab)).sort((a,b)=>b.rar-a.rar).map(it=>{const on=eq[it.slot]===it.uid,bad=it.slot==='weapon'&&it.cls&&it.cls!==save.cls;
   return`<div class="card ${on?'sel':''}" style="padding:6px"><div style="color:${IR[it.rar].col};font-weight:bold;font-size:13px">${it.icon} ${it.name} <span class="muted sm">[${IR[it.rar].n}]</span></div><div class="kv sm">${itemLines(it)}</div><div class="row" style="gap:4px;margin-top:4px"><button class="btn sm" ${on||bad?'disabled':''} onclick="equipItem('${it.uid}')">${on?'장착 중':bad?'착용 불가':'장착'}</button><button class="btn sm red" onclick="sellItem('${it.uid}')">판매 ${sellPrice(it)}G</button></div></div>`;}).join('')||'<div class="muted">보유한 장비가 없습니다. 원정 · 상점 · 검혼 제단 · 고대 유적에서 얻을 수 있습니다.</div>';
  const tabs=[['all','전체']].concat(SLOTS.map(x=>[x[0],x[1]])).map(([k,n])=>`<button class="btn sm ${eqTab===k?'gold':''}" onclick="showEquip('${k}')">${n}</button>`).join('');
  setUI(`<div class="scr"><div class="hdr"><h2>🎒 장비 — ${C.icon} ${C.name}</h2><div class="row"><span class="muted">가방 ${save.inv.length}/${INV_MAX}</span><button class="btn" onclick="showHub()">← 거점</button></div></div>
@@ -8083,6 +8083,330 @@ showHub=function(){
 };
 document.title='검성 — SWORD MASTER · v24';
 /* ===================== v24 END ===================== */
+
+/* ===================== v25 · 성장 곡선 개편 + 아르디아 HARD 3단계 =====================
+   v24의 저장 구조와 기존 콘텐츠를 보존하는 후행 패치.
+*/
+
+// 1) 플레이어 레벨 요구 경험치: 초반은 빠르게, 후반은 완만하게.
+function eternalNeedXp(l){
+  l=Math.max(1,Math.floor(Number(l)||1));
+  return Math.max(80,Math.round(80*Math.pow(1.10,l-1)));
+}
+
+// 2) 적 레벨 차이에 따른 경험치 페널티를 완화하고 보스 처치 보상을 정상화.
+killXpMul=function(e){
+  let lv=e&&e.boss&&e.B&&e.B.lv?e.B.lv:areaLv();
+  lv=Math.max(1,Math.round(Number(lv)||1));
+  let f=Math.pow(1.13,Math.min(lv-1,180));
+  const gap=save.level-lv;
+  if(gap>8)f*=Math.max(0.35,Math.pow(0.88,gap-8));
+  if(e&&e.boss)f*=1.0;
+  return f;
+};
+
+// 3) v24의 HARD 경험치 배율을 중복 적용하지 않고 한 곳에서 통합 처리.
+const _v25GainXpBase=gainXp;
+gainXp=function(n){
+  n=Math.max(0,Math.round(Number(n)||0));
+  if(G.g2k)n*=killXpMul(G.g2k);
+  if(run&&run.mode==='region'&&run.hard){
+    const tier=Math.max(1,Math.min(3,Number(run.v25Tier)||1));
+    n*=tier===1?1.5:(tier===2?1.6:1.7);
+  }
+  n=Math.round(n);
+  if(n<=0)return;
+  save.xp=(save.xp||0)+n;
+  if(run)run.xp=(run.xp||0)+n;
+  let levels=0;
+  while(save.xp>=eternalNeedXp(save.level)&&levels<100){
+    save.xp-=eternalNeedXp(save.level);
+    save.level++;save.sp=(save.sp||0)+3;levels++;sfx('level');
+    if(P&&!P.dead){
+      P.hp=Math.min(P.maxHp,P.hp+P.maxHp*0.25);
+      addFx({kind:'text',x:cxOf(P),y:P.y-40,txt:'LEVEL UP!',col:'#ffd77a',life:70});
+    }
+    if(save.level===5&&!save.jobDone)addFx({kind:'banner',txt:'🎖️ 전직 가능 — 거점의 [전직] 메뉴에서 직업을 고르세요',col:'#ffd77a',life:160});
+    if(save.level===15&&save.jobDone)addFx({kind:'banner',txt:'🏯 유파 개방 — [캐릭터 · 유파]에서 유파를 고르세요',col:'#ffd77a',life:160});
+    if(save.level===30)addFx({kind:'banner',txt:'⚔ 아르디아 탐색 HARD I 개방!',col:'#ff9b65',life:150});
+    if(save.level===40)addFx({kind:'banner',txt:'🔥 아르디아 탐색 HARD II 개방!',col:'#ff765e',life:150});
+    if(save.level===50)addFx({kind:'banner',txt:'☠ 아르디아 탐색 HARD III 개방!',col:'#d78cff',life:150});
+    if(save.level===60)addFx({kind:'banner',txt:'🏛 엔드게임 개방 — 레이드 · 고대 던전',col:'#7fe0ff',life:170});
+  }
+  if(levels)toast(`⬆️ 레벨 ${save.level} 달성! 스탯 포인트 +${levels*3}`);
+};
+
+// 4) HARD 등급별 권장 레벨과 적 강화. 기존 HARD는 1단계로 호환.
+const V25_HARD=[
+  {tier:1,min:30,name:'HARD I · 붉은 전장의 흔적',hp:1,atk:1,def:0,spd:1},
+  {tier:2,min:40,name:'HARD II · 심연의 광맥',hp:1.25,atk:1.15,def:0.035,spd:1.04},
+  {tier:3,min:50,name:'HARD III · 검의 종착지 전초전',hp:1.6,atk:1.30,def:0.07,spd:1.08}
+];
+const _v25StartRegion=startRegion;
+startRegion=function(i,hard=false,tier=1){
+  tier=hard?Math.max(1,Math.min(3,Math.floor(Number(tier)||1))):0;
+  const cfg=V25_HARD.find(x=>x.tier===tier);
+  if(hard&&save.level<(cfg?cfg.min:30)){
+    toast(`🔒 ${cfg?cfg.name:'아르디아 HARD'}는 Lv.${cfg?cfg.min:30}부터 입장할 수 있습니다. 현재 Lv.${save.level}`);
+    return;
+  }
+  G.v25TierNext=tier;
+  _v25StartRegion(i,hard);
+  if(run&&run.mode==='region')run.v25Tier=tier||1;
+  G.v25TierNext=0;
+  if(run&&run.mode==='region'&&hard){
+    const c=V25_HARD[tier-1];
+    addFx({kind:'banner',txt:`⚔ ${c.name}`,col:tier===3?'#d78cff':'#ff8b69',life:145});
+  }
+};
+
+const _v25Populate=populate;
+populate=function(r){
+  const before=enemies.length;
+  _v25Populate(r);
+  if(!run||run.mode!=='region'||!run.hard)return;
+  const tier=Math.max(1,Math.min(3,Number(run.v25Tier)||Number(G.v25TierNext)||1));
+  const cfg=V25_HARD[tier-1];
+  if(tier===1)return; // v24 HARD 기본 강화 수치 유지
+  for(const e of enemies.slice(before)){
+    if(!e||e.dead)continue;
+    e.hp=e.maxHp=Math.round(e.maxHp*cfg.hp);
+    e.atk=Math.max(1,e.atk*cfg.atk);
+    e.def=Math.min(0.84,(e.def||0)+cfg.def);
+    e.spd*=cfg.spd;
+    e.v25Tier=tier;
+  }
+};
+
+// 5) 상위 HARD 등급은 기존 클리어 보상에 추가 보상을 지급.
+const _v25RegionClear=regionClear;
+regionClear=function(){
+  const hard=!!(run&&run.mode==='region'&&run.hard);
+  const tier=hard?Math.max(1,Math.min(3,Number(run.v25Tier)||1)):0;
+  const regionIndex=run&&run.region;
+  _v25RegionClear();
+  if(hard&&tier>1){
+    const extra=tier===2?{gold:500,soul:2,mat:6}:{gold:1200,soul:5,mat:12};
+    const region=REGIONS[regionIndex];
+    save.gold=(save.gold||0)+extra.gold;
+    save.soul=(save.soul||0)+extra.soul;
+    if(region&&region.mat){ensureV17();save.mats[region.mat]=(save.mats[region.mat]||0)+extra.mat;}
+    writeSave(true);
+    toast(`🏆 HARD ${tier} 추가 보상: ${extra.gold}G · 검혼석 +${extra.soul} · 지역 재료 +${extra.mat}`);
+  }
+};
+
+// 6) 월드맵 출전 버튼을 NORMAL / HARD I~III로 교체.
+const _v25ShowWorld=showWorld;
+showWorld=function(){
+  _v25ShowWorld();
+  const card=[...document.querySelectorAll('#ui .card')].find(x=>x.textContent.includes('지역 보스:'));
+  if(!card)return;
+  const old=card.querySelector('button[onclick^="startRegion("]');
+  if(!old)return;
+  const idx=Number(G.v17sel)||0;
+  const buttons=V25_HARD.map(c=>{
+    const locked=save.level<c.min;
+    const cls=c.tier===3?'btn red':(c.tier===2?'btn':'btn gold');
+    return `<button class="${cls}" style="flex:1;min-width:46%" onclick="startRegion(${idx},true,${c.tier})" ${locked?'disabled':''}>${c.tier===1?'HARD I':(c.tier===2?'HARD II':'HARD III')} ${locked?`🔒 Lv.${c.min}`:''}</button>`;
+  }).join('');
+  old.outerHTML=`<div class="row" style="gap:5px;margin-top:7px;flex-wrap:wrap"><button class="btn gold" style="flex:1;min-width:46%" onclick="startRegion(${idx},false,0)">탐험 출발 · NORMAL</button>${buttons}</div><div class="muted sm" style="margin-top:5px">HARD I Lv.30 · HARD II Lv.40 · HARD III Lv.50 권장. 상위 단계일수록 적 강화 및 추가 보상 증가.</div>`;
+};
+
+// 7) 거점 경험치 표기도 새 공식과 일치시킨다.
+const _v25ShowHub=showHub;
+showHub=function(){
+  _v25ShowHub();
+  const right=document.querySelector('#ui .hub-right');
+  if(right)right.innerHTML=right.innerHTML.replace(/EXP \d+\/\d+|MAX/,`EXP ${(save.xp||0).toLocaleString()}/${eternalNeedXp(save.level).toLocaleString()}`);
+};
+
+document.title='검성 — SWORD MASTER · v25 GROWTH REWORK';
+/* ===================== v25 END ===================== */
+
+
+
+/* ===================== v25.1 STABLE · 인벤토리 · 비상 코드 · UI 안정화 ===================== */
+// 기존 세이브 구조는 유지하고, 빠진 배열/오브젝트만 실행 시 보충한다.
+function v26EnsureInventoryState(){
+  if(!Array.isArray(save.inv))save.inv=[];
+  if(!save.equip||typeof save.equip!=='object')save.equip={};
+  if(!save.redeemedCodes||typeof save.redeemedCodes!=='object')save.redeemedCodes={};
+}
+
+// 구형 화면/HUD/개발자 메뉴도 모두 동일한 현재 경험치 공식으로 표시한다.
+xpNeed=l=>eternalNeedXp(l);
+
+// 구버전 세이브의 누적 EXP가 새 요구량을 초과하면 잔여 경험치를 보존한 채 레벨업 처리.
+function v26ReconcileSavedXp(){
+  v26EnsureInventoryState();
+  let gained=0;
+  while(gained<100&&Number(save.xp||0)>=eternalNeedXp(save.level)){
+    save.xp-=eternalNeedXp(save.level);
+    save.level=Math.max(1,Number(save.level)||1)+1;
+    save.sp=(save.sp||0)+3;
+    gained++;
+  }
+  if(gained){
+    writeSave(true);
+    toast(`📈 성장 곡선 안정화 보정: 레벨 ${gained} 상승 · 스탯 포인트 +${gained*3}`);
+  }
+}
+
+const V26_XP_TICKET={type:'consumable',itemType:'xp_ticket',name:'경험치 티켓',icon:'🎟️',rar:2,amount:2500,description:'사용 시 경험치 2,500을 획득합니다.',st:{},w:0,price:0};
+const V26_INTERNAL_CODE='정훈 - 경험치 증가';
+const V26_CODE_ID='jeonghun_xp_ticket_2500_v1';
+
+function redeemInternalCode(){
+  const input=document.getElementById('v26InternalCode');
+  if(!input)return;
+  const code=String(input.value||'').normalize('NFC').trim().replace(/\s+/g,' ');
+  if(code!==V26_INTERNAL_CODE){input.value='';toast('코드가 올바르지 않습니다. 띄어쓰기와 문구를 확인하세요.');input.focus();return;}
+  v26EnsureInventoryState();
+  if(save.redeemedCodes[V26_CODE_ID]){toast('이미 사용한 코드입니다. 경험치 티켓은 세이브당 1회만 받을 수 있습니다.');input.value='';return;}
+  if(save.inv.length>=INV_MAX){toast(`인벤토리 공간이 부족합니다 (${INV_MAX}/${INV_MAX}). 공간을 만든 뒤 다시 입력하세요.`);return;}
+  const ticket=Object.assign({},V26_XP_TICKET,{uid:newUid(),st:{}});
+  if(!addItem(ticket,true)){toast('아이템 지급에 실패했습니다. 인벤토리 공간을 확인하세요.');return;}
+  save.redeemedCodes[V26_CODE_ID]=true;
+  writeSave(true);
+  input.value='';
+  toast('🎟️ 경험치 티켓(2,500 EXP)을 인벤토리에 지급했습니다!');
+  showSettings();
+}
+
+// 원정의 처치 배율이나 HARD 보상 배율과 무관하게 티켓의 표시 EXP만큼 지급한다.
+function useXpTicket(uid){
+  v26EnsureInventoryState();
+  if(G.scene==='play'||(run&&G.scene!=='hub')){toast('경험치 티켓은 거점에서 사용할 수 있습니다.');return;}
+  const i=save.inv.findIndex(it=>it.uid===uid&&it.itemType==='xp_ticket');
+  if(i<0)return;
+  const item=save.inv[i],amount=Math.max(0,Math.floor(Number(item.amount)||0));
+  if(!amount){toast('티켓 데이터가 올바르지 않습니다.');return;}
+  save.inv.splice(i,1);
+  const previousEnemy=G.g2k,previousRun=run;
+  try{
+    G.g2k=null;
+    run=null;
+    gainXp(amount);
+  }finally{
+    G.g2k=previousEnemy;
+    run=previousRun;
+  }
+  writeSave(true);
+  toast(`🎟️ ${amount.toLocaleString()} EXP 획득!`);
+  showInventory(v26InventoryTab);
+}
+
+let v26InventoryTab='all';
+function showInventory(tab){
+  if(tab)v26InventoryTab=tab;
+  v26EnsureInventoryState();
+  ensureBaseWeapons();
+  G.back=showHub;
+  const inv=save.inv.slice();
+  const isConsumable=it=>it.itemType==='xp_ticket'||it.type==='consumable';
+  const filtered=inv.filter(it=>v26InventoryTab==='all'||(v26InventoryTab==='consumable'?isConsumable(it):!isConsumable(it)));
+  const equipped=new Set();
+  for(const c in save.equip)for(const slot in save.equip[c])equipped.add(save.equip[c][slot]);
+  const cards=filtered.map(it=>{
+    const rare=IR[it.rar]||IR[0],cons=isConsumable(it),isTicket=it.itemType==='xp_ticket';
+    const detail=isTicket?`<div class="kv sm">${(Number(it.amount)||0).toLocaleString()} EXP · ${it.description||'사용하면 경험치를 획득합니다.'}</div>`:`<div class="kv sm">${itemLines(it)}</div>`;
+    const action=isTicket
+      ?`<button class="btn sm gold" onclick="useXpTicket('${it.uid}')">🎟️ 사용</button>`
+      :`<button class="btn sm" onclick="showEquip()">장비 관리</button>`;
+    const store=`<button class="btn sm" onclick="storeItem('${it.uid}')">보관함 이동</button>`;
+    return `<div class="card" style="padding:9px;min-width:0"><div class="row" style="justify-content:space-between;gap:6px"><b style="color:${rare.col};font-size:13px">${it.icon||'◆'} ${it.name||'이름 없는 아이템'}</b><span class="muted sm">${cons?'소비 아이템':rare.n}</span></div>${detail}<div class="row" style="gap:5px;flex-wrap:wrap;margin-top:7px">${action}${store}${equipped.has(it.uid)?'<span class="muted sm">장착 중</span>':''}</div></div>`;
+  }).join('')||`<div class="card muted" style="grid-column:1/-1;text-align:center;padding:24px">${v26InventoryTab==='consumable'?'보유한 소비 아이템이 없습니다. 설정에서 비상 보급 코드를 입력할 수 있습니다.':'인벤토리가 비어 있습니다.'}</div>`;
+  const tabButton=(key,label)=>`<button class="btn sm ${v26InventoryTab===key?'gold':''}" onclick="showInventory('${key}')">${label}</button>`;
+  setUI(`<div class="scr"><div class="hdr"><h2>🎒 인벤토리</h2><div class="row" style="gap:6px"><span class="muted">${inv.length}/${INV_MAX}</span><button class="btn sm" onclick="showStorage()">🗄️ 보관함</button><button class="btn" onclick="showHub()">← 거점</button></div></div><div class="row" style="gap:5px;flex-wrap:wrap;margin-bottom:8px">${tabButton('all',`전체 ${inv.length}`)}${tabButton('gear',`장비 ${inv.filter(x=>!isConsumable(x)).length}`)}${tabButton('consumable',`소비 아이템 ${inv.filter(isConsumable).length}`)}<button class="btn sm" onclick="showEquip()">⚔️ 장비 장착/판매</button></div><div class="scroll" style="flex:1;min-height:0"><div class="grid3">${cards}</div></div><div class="muted sm" style="margin-top:6px">경험치 티켓은 거점에서 사용됩니다. 장비는 장비 관리 화면에서 장착·판매할 수 있고, 보관함으로 옮겨 가방 공간을 확보할 수 있습니다.</div></div>`);
+}
+
+// 마을형 거점에서는 사당지기 대화에도 인벤토리 진입을 제공한다.
+const v26Keeper=VNPC.find(n=>n.id==='keeper');
+if(v26Keeper){const _v26KeeperOpts=v26Keeper.opts;v26Keeper.opts=()=>_v26KeeperOpts().concat([['🎒 인벤토리',()=>showInventory('all'),true]]);}
+
+// 설정의 데이터 영역에 내부 코드 입력란을 추가한다. 일시정지 설정에서도 동일하게 사용 가능.
+const _v26ShowSettings=showSettings;
+showSettings=function(back){
+  _v26ShowSettings(back);
+  const host=G.scene==='play'?$('modal'):$('ui');
+  const card=host&&host.querySelector('.card');
+  if(!card||card.querySelector('#v26InternalCode'))return;
+  v26EnsureInventoryState();
+  const used=!!save.redeemedCodes[V26_CODE_ID];
+  card.insertAdjacentHTML('beforeend',`<div class="sec" style="margin-top:14px">🔐 비상 보급 코드</div><div class="muted sm" style="line-height:1.6">문제가 발생했을 때 사용할 수 있는 내부 보급 코드입니다. 입력하면 경험치 티켓 1장이 인벤토리에 지급됩니다. 세이브당 1회 사용 가능합니다.</div><div class="row" style="gap:6px;margin-top:7px;align-items:stretch"><input id="v26InternalCode" type="text" autocomplete="off" spellcheck="false" placeholder="내부 코드 입력" style="flex:1;min-width:0;padding:9px;border-radius:8px;background:#151522;color:#fff;border:1px solid #555" onkeydown="if(event.key==='Enter')redeemInternalCode()"><button id="v26InternalCodeBtn" class="btn sm gold" onclick="redeemInternalCode()" ${used?'disabled':''}>${used?'사용 완료':'코드 등록'}</button></div>${used?'<div class="muted sm" style="color:#9fe8a8;margin-top:5px">✔ 이 세이브에서는 이미 보급을 받았습니다.</div>':''}`);
+};
+
+// 월드맵에 겹쳐 삽입되던 v24/v25 출전 버튼들을 제거하고 단일 2열 그리드로 재구성.
+const _v26ShowWorld=showWorld;
+showWorld=function(){
+  _v26ShowWorld();
+  const card=[...document.querySelectorAll('#ui .card')].find(x=>x.textContent.includes('지역 보스:'));
+  if(!card)return;
+  const nodes=[...card.querySelectorAll('button[onclick^="startRegion("]')];
+  const remove=new Set();
+  nodes.forEach(btn=>{const row=btn.closest('.row');remove.add(row&&card.contains(row)?row:btn);});
+  [...remove].filter(node=>node&&!([...remove].some(parent=>parent!==node&&parent.contains(node)))).forEach(node=>node.remove());
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:9px;width:100%';
+  const make=(label,onclick,locked,color)=>{
+    const b=document.createElement('button');b.className=`btn sm ${color||''}`;b.textContent=label;b.disabled=!!locked;
+    b.style.cssText='width:100%;min-width:0;white-space:normal;line-height:1.35;padding:8px 4px;overflow-wrap:anywhere';
+    b.setAttribute('onclick',onclick);return b;
+  };
+  const idx=Number(G.v17sel)||0;
+  grid.appendChild(make('탐험 NORMAL',`startRegion(${idx},false,0)`,false,'gold'));
+  V25_HARD.forEach(c=>grid.appendChild(make(save.level>=c.min?`HARD ${c.tier}`:`🔒 Lv.${c.min}`,`startRegion(${idx},true,${c.tier})`,save.level<c.min,c.tier===3?'red':'')));
+  const label=document.createElement('div');label.className='muted sm';label.style.cssText='margin-top:6px;line-height:1.5';
+  label.textContent='NORMAL · 기본 탐험 / HARD I Lv.30 / HARD II Lv.40 / HARD III Lv.50. 상위 난이도는 적 강화와 추가 보상이 적용됩니다.';
+  card.appendChild(grid);card.appendChild(label);
+};
+
+// 거점에서 새 인벤토리 화면으로 접근할 수 있게 하고, 보정은 한 번만 적용한다.
+const _v26ShowHub=showHub;
+showHub=function(){
+  v26EnsureInventoryState();
+  ensureBaseWeapons();
+  v26ReconcileSavedXp();
+  _v26ShowHub();
+  const host=document.querySelector('.hub-left');
+  if(host&&!host.querySelector('[data-v26-inventory]')){
+    const b=document.createElement('button');b.className='btn';b.dataset.v26Inventory='1';
+    b.textContent=`🎒 인벤토리 · ${save.inv.length}/${INV_MAX}`;
+    b.style.gridColumn='1/-1';b.onclick=()=>showInventory('all');
+    const equipment=[...host.querySelectorAll('button')].find(x=>(x.getAttribute('onclick')||'').trim()==='showEquip()');
+    if(equipment)equipment.before(b);else host.appendChild(b);
+  }
+  const right=document.querySelector('#ui .hub-right');
+  if(right){
+    right.innerHTML=right.innerHTML.replace(/EXP\s*[\d,]+\s*\/\s*[\d,]+|EXP\s*\d+\/\d+|MAX/,`EXP ${(save.xp||0).toLocaleString()}/${eternalNeedXp(save.level).toLocaleString()}`);
+  }
+};
+
+// 마을에서 Esc로 여는 메뉴형 거점에도 인벤토리 버튼을 노출한다.
+const _v26ShowMenuHub=showMenuHub;
+showMenuHub=function(){
+  _v26ShowMenuHub();
+  const host=document.querySelector('.hub-left');
+  if(host&&!host.querySelector('[data-v26-inventory]')){
+    const b=document.createElement('button');b.className='btn';b.dataset.v26Inventory='1';
+    b.textContent=`🎒 인벤토리 · ${save.inv.length}/${INV_MAX}`;b.style.gridColumn='1/-1';b.onclick=()=>showInventory('all');
+    const equipment=[...host.querySelectorAll('button')].find(x=>(x.getAttribute('onclick')||'').trim()==='showEquip()');
+    if(equipment)equipment.before(b);else host.appendChild(b);
+  }
+};
+
+// 타이틀/메뉴에 실제 안정화 버전을 표기한다.
+const _v26ShowTitle=showTitle;
+showTitle=function(){_v26ShowTitle();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 · v25.1 STABLE';};
+const _v26ShowMenu=showMenu;
+showMenu=function(){_v26ShowMenu();const v=document.querySelector('#ui .ver');if(v)v.textContent='검성 · SWORD MASTER · v25.1 STABLE · 자동 저장 지원';};
+
+document.title='검성 — SWORD MASTER · v25.1 STABLE';
+/* ===================== v25.1 STABLE END ===================== */
+
+// 마지막 패치 적용 뒤 화면을 다시 그려 초기 진입 시에도 안정화 버전이 표시되도록 한다.
+if(G.scene==='title')showTitle();
 
 </script>
 </body>
